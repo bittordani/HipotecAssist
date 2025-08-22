@@ -5,3 +5,4 @@ venv/
 # Ignorar todos los archivos compilados por python
 __pycache__/
 *.pyc
+
