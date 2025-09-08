@@ -2,3 +2,19 @@
 venv/
 .env/
 .venv/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# Logs / SO
+*.log
+.DS_Store
+Thumbs.db
