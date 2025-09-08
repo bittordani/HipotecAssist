@@ -29,3 +29,7 @@ El asesor hipotecario virtual es una solución basada en inteligencia artificial
 - Reducción de costes en atención humana
 - Agilidad en la atención y disponibilidad 24/7
 - Lenguaje técnico simplificado para cualquier usuario
+
+## Como usar
+- pip install -r requirements.txt
+- uvicorn hipotecassist_api:app --reload

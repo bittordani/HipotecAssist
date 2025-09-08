@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Análisis Hipotecario</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Analizador de Hipoteca</h1>
+
+    <form id="form-analisis">
+      <div class="grid">
+        <div class="field">
+          <label>Capital pendiente (€)</label>
+          <input type="number" id="capital_pendiente" required />
+        </div>
+
+        <div class="field">
+          <label>Años restantes</label>
+          <input type="number" id="anos_restantes" required />
+        </div>
+
+        <div class="field">
+          <label>Tipo de interés</label>
+          <select id="tipo">
+            <option value="fijo">Fijo</option>
+            <option value="variable">Variable</option>
+          </select>
+        </div>
+
+        <div class="field" id="bloque-fijo">
+          <label>TIN actual (%)</label>
+          <input type="number" id="tin" step="0.01" />
+        </div>
+
+        <div class="field hidden" id="bloque-variable">
+          <label>Euríbor actual (%)</label>
+          <input type="number" id="euribor" step="0.01" />
+          <label>Diferencial (%)</label>
+          <input type="number" id="diferencial" step="0.01" />
+        </div>
+
+        <div class="field">
+          <label>Cuota actual (€) (opcional)</label>
+          <input type="number" id="cuota_actual" step="0.01" />
+        </div>
+
+        <div class="field">
+          <label>Ingresos mensuales (€) (opcional)</label>
+          <input type="number" id="ingresos_mensuales" step="0.01" />
+        </div>
+
+        <div class="field">
+          <label>Otras deudas mensuales (€) (opcional)</label>
+          <input type="number" id="otras_deudas_mensuales" step="0.01" />
+        </div>
+
+        <div class="field">
+          <label>Valor vivienda (€) (opcional)</label>
+          <input type="number" id="valor_vivienda" step="0.01" />
+        </div>
+
+        <div class="field">
+          <label>Oferta alternativa TIN (%) (opcional)</label>
+          <input type="number" id="oferta_alternativa_tin" step="0.01" />
+        </div>
+      </div>
+
+      <button type="submit">Analizar</button>
+    </form>
+
+    <div id="cards" class="cards"></div>
+
+    <div class="panel">
+      <h2>Resumen de amortización</h2>
+      <table id="tabla-resumen">
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th>Cuota</th>
+            <th>Interés mes</th>
+            <th>Amortizado mes</th>
+            <th>Saldo</th>
+            <th>Interés acumulado</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="subrogacion-panel" style="display:none;">
+      <h2>Comparativa de subrogación</h2>
+      <div id="subrogacion"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Stress test</h2>
+      <div id="stress"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Avisos</h2>
+      <ul id="avisos"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Amortización anticipada (ahorro intereses)</h2>
+      <div id="ahorros"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
