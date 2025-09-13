@@ -6,9 +6,16 @@ from typing import Optional, List, Dict
 import requests
 import os
 
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
 ultimo_resultado = None
 
 app = FastAPI()
+
+# Carpeta frontend relativa a la raíz del proyecto
+frontend_path = Path(__file__).parent.parent / "frontend"
+app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 # CORS para desarrollo
 app.add_middleware(
