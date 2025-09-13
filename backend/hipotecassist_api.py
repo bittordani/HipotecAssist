@@ -1,8 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from math import pow
 from typing import Optional, List, Dict
+import requests
+import os
+
+ultimo_resultado = None
 
 app = FastAPI()
 
@@ -123,6 +127,11 @@ class AnalisisInput(BaseModel):
     valor_vivienda: Optional[float] = Field(None, description="Valor aproximado actual")
     oferta_alternativa_tin: Optional[float] = Field(None, description="Tipo alternativo para comparar (TAE/TIN %)")
 
+
+class PreguntaInput(BaseModel):
+    pregunta: str
+
+
 # ---------- Endpoints ----------
 @app.get("/")
 def root():
@@ -130,6 +139,7 @@ def root():
 
 @app.post("/analisis")
 def analisis(data: AnalisisInput):
+    print("Datos recibidos:", data)
     P = data.capital_pendiente
     n_meses = data.anos_restantes * 12
 
@@ -192,13 +202,13 @@ def analisis(data: AnalisisInput):
         elif ltv > 70:
             avisos.append("LTV 70–80%: margen razonable, pero cuidado con caídas de valor.")
 
-    return {
-        "ok": True,
-        "entrada": {
-            "capital_pendiente": P,
-            "anos_restantes": data.anos_restantes,
-            "tipo": tipo_label
-        },
+    resultado = {
+    "ok": True,
+    "entrada": {
+        "capital_pendiente": P,
+        "anos_restantes": data.anos_restantes,
+        "tipo": tipo_label
+    },  
         "metricas": {
             "cuota_efectiva": round(cuota_efectiva, 2),
             "cuota_estimada": round(cuota_estimada, 2),
@@ -219,3 +229,47 @@ def analisis(data: AnalisisInput):
         "comparativa_subrogacion": comparativa,
         "avisos": avisos
     }
+
+    global ultimo_resultado
+    ultimo_resultado = resultado
+
+    return resultado
+
+
+
+@app.post("/preguntar")
+def preguntar(data: PreguntaInput):
+    global ultimo_resultado
+
+    if not ultimo_resultado:
+        return {"ok": False, "error": "No hay análisis previo. Envía el formulario primero."}
+
+    api_key = os.getenv("GROQ_API_KEY")  # tu clave
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    # Construimos el mensaje con contexto
+    messages = [
+        {"role": "system", "content": "Eres un asistente hipotecario."},
+        {"role": "system", "content": f"Contexto del usuario: {ultimo_resultado}"},
+        {"role": "user", "content": data.pregunta}
+    ]
+
+    payload = {
+        "model": "llama-3.1-8b-instant",
+        "messages": messages
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        respuesta = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+        return {"ok": True, "respuesta": respuesta}
+    except requests.HTTPError as e:
+        return {"ok": False, "error": f"Error en la API: {e} - {resp.text}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

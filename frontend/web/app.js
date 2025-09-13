@@ -148,3 +148,111 @@ function card(title, value, badge = null) {
   `;
 }
 
+// ---------- Chat asistente hipotecario ----------
+let ultimoResultado = null; // guardará el último análisis
+
+// Crear contenedor de chat
+const chatPanel = document.createElement("div");
+chatPanel.id = "chat-panel";
+chatPanel.style = "border:1px solid #ccc; padding:10px; margin-top:20px;";
+
+// Título
+const chatTitle = document.createElement("h2");
+chatTitle.textContent = "Asistente Hipotecario";
+chatPanel.appendChild(chatTitle);
+
+// Mensajes
+const chatMessages = document.createElement("div");
+chatMessages.id = "chat-messages";
+chatMessages.style = "border:1px solid #ccc; padding:10px; height:200px; overflow-y:auto; margin-bottom:10px;";
+chatPanel.appendChild(chatMessages);
+
+// Input + botón
+const chatInput = document.createElement("input");
+chatInput.id = "chat-input";
+chatInput.placeholder = "Escribe tu pregunta...";
+chatInput.style = "width:70%; margin-right:5px;";
+chatPanel.appendChild(chatInput);
+
+const chatSend = document.createElement("button");
+chatSend.textContent = "Enviar";
+chatPanel.appendChild(chatSend);
+
+// Añadir chat al final del contenedor principal
+document.querySelector(".container").appendChild(chatPanel);
+
+// Función para mostrar mensajes
+function addMessage(sender, text) {
+  const div = document.createElement("div");
+  div.innerHTML = `<strong>${sender}:</strong> ${text}`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Guardar análisis para usar en el chat
+const formAnalisis = el("form-analisis");
+formAnalisis.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  // Después de que el análisis haya ido bien...
+  const payload = {
+    capital_pendiente: parseFloat(el("capital_pendiente").value),
+    anos_restantes: parseInt(el("anos_restantes").value),
+    tipo: el("tipo").value,
+    tin: parseFloat(el("tin").value) || null,
+    euribor: parseFloat(el("euribor").value) || null,
+    diferencial: parseFloat(el("diferencial").value) || null,
+    cuota_actual: parseFloat(el("cuota_actual").value) || null,
+    ingresos_mensuales: parseFloat(el("ingresos_mensuales").value) || null,
+    otras_deudas_mensuales: parseFloat(el("otras_deudas_mensuales").value) || 0,
+    valor_vivienda: parseFloat(el("valor_vivienda").value) || null,
+    oferta_alternativa_tin: parseFloat(el("oferta_alternativa_tin").value) || null,
+  };
+
+  try {
+    const res = await fetch(`${API}/analisis`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (data.ok) {
+      ultimoResultado = data; // guardamos el análisis
+      addMessage("Sistema", "Análisis completado. Ahora puedes hacer preguntas al asistente.");
+    }
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+// Enviar preguntas al bot
+chatSend.addEventListener("click", async () => {
+  if (!ultimoResultado) {
+    alert("Primero debes hacer un análisis.");
+    return;
+  }
+
+  const pregunta = chatInput.value.trim();
+  if (!pregunta) return;
+
+  addMessage("Usuario", pregunta);
+  chatInput.value = "";
+
+  try {
+    const res = await fetch(`${API}/preguntar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pregunta,
+        contexto: ultimoResultado // enviamos el análisis como contexto
+      })
+    });
+
+    const data = await res.json();
+    addMessage("Bot", data.respuesta || "No se pudo generar respuesta.");
+  } catch (err) {
+    console.error(err);
+    addMessage("Bot", "Error al conectarse con el servidor.");
+  }
+});
