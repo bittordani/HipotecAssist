@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: ./backend
+    container_name: hipoassist-backend
+    ports:
+      - "8000:8000" # si hay conflizto de puertos cambiar el primer numero
+    volumes:
+      - ./backend:/app
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: hipoassist-frontend
+    ports:
+      - "8080:80" # si hay conflizto de puertos cambiar el primer numero
+    restart: always

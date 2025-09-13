@@ -1,4 +1,4 @@
-const API = "http://127.0.0.1:8000";
+const API = "http://backend:8000";
 
 const el = (id) => document.getElementById(id);
 const fmt = (n) => n?.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
