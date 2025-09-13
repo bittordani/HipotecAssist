@@ -14,7 +14,7 @@ ultimo_resultado = None
 app = FastAPI()
 
 # Carpeta frontend relativa a la raíz del proyecto
-frontend_path = Path(__file__).parent.parent / "frontend"
+frontend_path = Path(__file__).parent.parent / "frontend" / "web"
 app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 # CORS para desarrollo
