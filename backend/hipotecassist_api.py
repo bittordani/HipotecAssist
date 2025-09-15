@@ -13,9 +13,9 @@ ultimo_resultado = None
 
 app = FastAPI()
 
-# Carpeta frontend relativa a la raíz del proyecto
-frontend_path = Path(__file__).parent.parent / "frontend" / "web"
-app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+# # Carpeta frontend relativa a la raíz del proyecto
+# frontend_path = Path(__file__).parent.parent / "frontend" / "web"
+# app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 # CORS para desarrollo
 app.add_middleware(
@@ -256,7 +256,7 @@ def preguntar(data: PreguntaInput):
 
     # Construimos el mensaje con contexto
     messages = [
-        {"role": "system", "content": "Eres un asistente hipotecario."},
+        {"role": "system", "content": "Eres un asistente hipotecario. Y das respuestas muy cortas para que el usuario entienda rapido"},
         {"role": "system", "content": f"Contexto del usuario: {ultimo_resultado}"},
         {"role": "user", "content": data.pregunta}
     ]
