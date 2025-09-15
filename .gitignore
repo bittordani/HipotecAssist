@@ -1,6 +1,7 @@
 # Entornos virtuales
 venv/
 .env/
+.env
 .venv/
 
 # Python cache
@@ -23,3 +24,5 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# Prueba Guille
+prueba1/

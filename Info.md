@@ -1,12 +1,20 @@
 ## Seguir estos pasos:
-- Clonar solo la rama "feature/dockerizar": 
+- Clonar repo
 ```bash
-git clone -b feature/dockerizar --single-branch git@github.com:bittordani/HipotecAssist.git
+git clone -b feature/front-back-dockercompose --single-branch git@github.com:bittordani/HipotecAssist.git
 cd HipotecAssist
 ```
-- en el directorio raiz (a la misma altura que el Dockerfile)
+- Ejecutar 
 ```bash
-docker build -t mi-api .
-docker run -p 8000:8000 -e GROQ_API_KEY="agrega-clave-que-os-paso-por-discord-entre-estas-comillas" mi-api
+docker compose up -d --build
 ```
-- Ir a http:localhost:8000
+
+- Acceder al contenedor y pegar API_KEY (La API key se encuentra en discord): 
+```bash
+docker exec -it hipotecas_backend /bin/bash
+```
+```bash
+export GROQ_API_KEY="tu_clave_aqui"
+```
+- Ir a http:localhost:8080
+- Y al back http:localhost:8000

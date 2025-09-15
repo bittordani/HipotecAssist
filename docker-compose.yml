@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "8000:8000" # si hay conflicto de puertos cambiar el primer numero
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./.env
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "8080:80" # si hay conflicto de puertos cambiar el primer numero
+    volumes:
+      - ./frontend/web:/usr/share/nginx/html # Montar la carpeta local en el contenedor
+    depends_on:
+      - backend
+    restart: always
