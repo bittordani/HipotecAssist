@@ -25,6 +25,5 @@ __pycache__/
 *.pyc
 
 # envs
-.env
 **/.env
 *.env
