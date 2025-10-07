@@ -24,5 +24,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# Prueba Guille
-prueba1/
+# envs
+.env
+**/.env
+*.env
