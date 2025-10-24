@@ -11,6 +11,9 @@ from pathlib import Path
 
 import logging
 import time
+from datetime import datetime
+
+from llm import responder_pregunta_gemini  # importamos la lógica del LLM
 
 
 ultimo_resultado = None
@@ -151,8 +154,6 @@ class AnalisisInput(BaseModel):
     oferta_alternativa_tin: Optional[float] = Field(None, description="Tipo alternativo para comparar (TAE/TIN %)")
 
 
-class PreguntaInput(BaseModel):
-    pregunta: str
 
 
 # ---------- Endpoints ----------
@@ -171,9 +172,29 @@ def root():
     logger.info("API activa CORRECTAMENTE")
     return {"ok": True, "msg": "API de análisis hipotecario activa"}
 
+
+start_time = datetime.utcnow() # Hora actual
+
+@app.get("/health")
+def health_check():
+    uptime = datetime.utcnow() - start_time
+
+    days = uptime.days
+    hours, remainder = divmod(uptime.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    uptime_formatted = f"{days}d {hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    return {
+        "status": "ok",
+        "uptime": uptime_formatted
+    }
+
+# Recoge datos del usuario
 @app.post("/analisis")
 def analisis(data: AnalisisInput):
     logger.info(f"Analizando hipoteca: tipo={data.tipo}, capital={data.capital_pendiente}, años={data.anos_restantes}")
+    logger.debug(f"Recibido /analisis: {data}")
 
     print("Datos recibidos:", data)
     P = data.capital_pendiente
@@ -275,67 +296,85 @@ def analisis(data: AnalisisInput):
 
     return resultado
 
-
+class PreguntaInput(BaseModel):
+    pregunta: str
+    temperature: float = 0.3
+    max_tokens: int = 250
 
 @app.post("/preguntar")
 def preguntar(data: PreguntaInput):
     global ultimo_resultado
-
     if not ultimo_resultado:
-        logger.warning("****Intento de pregunta sin análisis previo****")
         return {"ok": False, "error": "No hay análisis previo. Envía el formulario primero."}
 
-    api_key = os.getenv("GROQ_API_KEY")  # tu clave
-    url = "https://api.groq.com/openai/v1/chat/completions"
+    respuesta = responder_pregunta_gemini(
+        pregunta=data.pregunta,
+        contexto=ultimo_resultado,
+        temperature=data.temperature,
+        max_tokens=data.max_tokens
+    )
+    return {"ok": True, "respuesta": respuesta}
 
-    system_prompt = """
-    Eres un asistente hipotecario digital experto en hipotecas en España.
 
-    Tu objetivo es ayudar al usuario a entender su situación hipotecaria, cuotas, intereses, DTI o LTV,
-    basándote en el contexto que te da el sistema.
+# @app.post("/preguntar")
+# def preguntar(data: PreguntaInput):
+#     global ultimo_resultado
 
-    Reglas:
-    - Responde SIEMPRE en español.
-    - Sé breve y claro (1 a 3 frases).
-    - Usa un tono natural, empático y profesional.
-    - No des consejos legales, fiscales ni financieros personales.
-    - Si faltan datos, dilo y sugiere qué información falta.
-    - No inventes cifras ni datos bancarios.
-    - Si el usuario te pide una opinión, da orientación general y en preguntas complicadas anima a consultar con un experto.
-    - Evita tecnicismos; explica las cosas de forma sencilla y práctica.
+#     if not ultimo_resultado:
+#         logger.warning("****Intento de pregunta sin análisis previo****")
+#         return {"ok": False, "error": "No hay análisis previo. Envía el formulario primero."}
 
-    Ejemplo de estilo:
-    ❌ “El diferencial aplicado al índice de referencia es superior a la media histórica.”
-    ✅ “Tu tipo variable parece algo alto; podrías preguntar si tu banco ofrece un diferencial más bajo.”
-    """
+#     api_key = os.getenv("GROQ_API_KEY")  # tu clave
+#     url = "https://api.groq.com/openai/v1/chat/completions"
 
-    # Construimos el mensaje con contexto
-    messages = [
-        {"role": "system", "content": system_prompt.strip()},
-        {"role": "system", "content": f"Contexto del usuario: {ultimo_resultado}"},
-        {"role": "user", "content": data.pregunta}
-    ]
+#     system_prompt = """
+#     Eres un asistente hipotecario digital experto en hipotecas en España.
 
-    payload = {
-    "model": "llama-3.1-8b-instant",
-    "messages": messages,
-    "temperature": 0.3,
-    "max_tokens": 250,
-    }
+#     Tu objetivo es ayudar al usuario a entender su situación hipotecaria, cuotas, intereses, DTI o LTV,
+#     basándote en el contexto que te da el sistema.
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+#     Reglas:
+#     - Responde SIEMPRE en español.
+#     - Sé breve y claro (1 a 3 frases).
+#     - Usa un tono natural, empático y profesional.
+#     - No des consejos legales, fiscales ni financieros personales.
+#     - Si faltan datos, dilo y sugiere qué información falta.
+#     - No inventes cifras ni datos bancarios.
+#     - Si el usuario te pide una opinión, da orientación general y en preguntas complicadas anima a consultar con un experto.
+#     - Evita tecnicismos; explica las cosas de forma sencilla y práctica.
 
-    try:
-        resp = requests.post(url, headers=headers, json=payload)
-        resp.raise_for_status()
-        respuesta = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-        logger.info("Respuesta de la API Groq recibida correctamente")
-        return {"ok": True, "respuesta": respuesta}
-    except requests.HTTPError as e:
-        return {"ok": False, "error": f"Error en la API: {e} - {resp.text}"}
-    except Exception as e:
-        logger.exception(f"****Error en /preguntar: {e}****")
-        return {"ok": False, "error": str(e)}
+#     Ejemplo de estilo:
+#     ❌ “El diferencial aplicado al índice de referencia es superior a la media histórica.”
+#     ✅ “Tu tipo variable parece algo alto; podrías preguntar si tu banco ofrece un diferencial más bajo.”
+#     """
+
+#     # Construimos el mensaje con contexto
+#     messages = [
+#         {"role": "system", "content": system_prompt.strip()},
+#         {"role": "system", "content": f"Contexto del usuario: {ultimo_resultado}"},
+#         {"role": "user", "content": data.pregunta}
+#     ]
+
+#     payload = {
+#     "model": "llama-3.1-8b-instant",
+#     "messages": messages,
+#     "temperature": 0.3,
+#     "max_tokens": 250,
+#     }
+
+#     headers = {
+#         "Authorization": f"Bearer {api_key}",
+#         "Content-Type": "application/json"
+#     }
+
+#     try:
+#         resp = requests.post(url, headers=headers, json=payload)
+#         resp.raise_for_status()
+#         respuesta = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+#         logger.info("Respuesta de la API Groq recibida correctamente")
+#         return {"ok": True, "respuesta": respuesta}
+#     except requests.HTTPError as e:
+#         return {"ok": False, "error": f"Error en la API: {e} - {resp.text}"}
+#     except Exception as e:
+#         logger.exception(f"****Error en /preguntar: {e}****")
+#         return {"ok": False, "error": str(e)}

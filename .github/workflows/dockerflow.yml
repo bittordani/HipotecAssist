@@ -1,8 +1,10 @@
 name: dockerflow
 
 on:
+  pull_request:
+    branches: [main, develop, feature/dockerizar]
   push:
-    branches: [feature/dockerizar]
+    branches: [main, develop, feature/dockerizar]
   workflow_dispatch:
 
 
@@ -12,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DOCKER_HUB_USERNAME: matope1 # ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_HUB_TOKEN: dckr_pat_h4J2zfsoXd6x4N03BPadqzbbJVM #${{ secrets.DOCKER_TOKEN }}
+      DOCKER_HUB_USERNAME: matope1 # ${{ secrets.DOCKER_USERNAME }} aplicar secret/env en repo
+      DOCKER_HUB_TOKEN: dckr_pat_h4J2zfsoXd6x4N03BPadqzbbJVM #${{ secrets.DOCKER_TOKEN }} aplicar secret en repo
 
     steps:
       - name: Checkout
@@ -22,11 +24,13 @@ jobs:
       - name: Set up Docker buildx
         uses: docker/setup-buildx-action@v2
 
+        # Contruye imagen cogiendo dockerfile local
       - name: Build image back & front
         run: |
           docker build -t matope1/hipotecassist-backend:ci -f backend/Dockerfile backend/
           docker build -t matope1/hipotecassist-frontend:ci -f frontend/Dockerfile frontend/
 
+        # Contruye la aplicación con docker compose CI (contruye dockerfile local)
       - name: Start with Docker Compose up
         run: |
           docker compose -f docker-compose.ci.yml up -d
@@ -36,6 +40,7 @@ jobs:
             sleep 2
           done
 
+        # Test de conectividad con los endpoints
       - name: Tests API endpoints
         run: |
           curl -s -f http://localhost:8000/
@@ -50,6 +55,7 @@ jobs:
             -d '{"pregunta":"Hola"}' \
             -f
 
+        # Limpia archivos que no se necesitan una vez pasado el test
       - name: Clear with Compose down
         run: docker compose -f docker-compose.ci.yml down
 
@@ -60,6 +66,7 @@ jobs:
           username: ${{ env.DOCKER_HUB_USERNAME }}
           password: ${{ env.DOCKER_HUB_TOKEN }}
 
+        # Actualiza las imagenes del DockerHub
       - name: Push images to DockerHub
         if: success()
         run: |
@@ -69,6 +76,3 @@ jobs:
           docker push matope1/hipotecassist-frontend:latest
 
 
-      # - name: Push frontend to DockerHub
-      #   if: success()
-      #   run: docker push matope1/hipotecassist-frontend:latest
