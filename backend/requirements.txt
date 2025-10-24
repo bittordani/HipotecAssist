@@ -3,3 +3,4 @@ uvicorn[standard]
 pydantic
 requests
 python-dotenv
+pytest
