@@ -30,7 +30,7 @@ El asesor hipotecario virtual es una solución basada en inteligencia artificial
 - Agilidad en la atención y disponibilidad 24/7
 - Lenguaje técnico simplificado para cualquier usuario
 
-## Como usar
+## Como usar en local
 - Clonar repositorio:
   ```
   git clone git@github.com:bittordani/HipotecAssist.git
@@ -46,3 +46,8 @@ El asesor hipotecario virtual es una solución basada en inteligencia artificial
   ```
   http://localhost:8080/
   ```
+
+## Git Actions
+
+- Dockerflow.yml:
+*Verifica que los cambios que se han realizado en la aplicacion dockeriza correctamnete, comprobando que la API funciona y actualiza las imagenes Back y Front en DockerHub*
