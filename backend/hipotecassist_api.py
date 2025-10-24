@@ -1,10 +1,37 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from math import pow
 from typing import Optional, List, Dict
+import requests
+import os
+
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
+import logging
+import time
+
+
+ultimo_resultado = None
+
+logging.getLogger().handlers.clear()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",   # Incluye fecha, hora y nivel
+    datefmt="%Y-%m-%d %H:%M:%S",                       # Formato de fecha/hora
+)
+
+logger = logging.getLogger(__name__)
+
+
 
 app = FastAPI()
+
+# # Carpeta frontend relativa a la raíz del proyecto
+# frontend_path = Path(__file__).parent.parent / "frontend" / "web"
+# app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 # CORS para desarrollo
 app.add_middleware(
@@ -123,24 +150,46 @@ class AnalisisInput(BaseModel):
     valor_vivienda: Optional[float] = Field(None, description="Valor aproximado actual")
     oferta_alternativa_tin: Optional[float] = Field(None, description="Tipo alternativo para comparar (TAE/TIN %)")
 
+
+class PreguntaInput(BaseModel):
+    pregunta: str
+
+
 # ---------- Endpoints ----------
+@app.middleware("http")
+async def simple_logger(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    duration = time.time() - start
+
+    logger.info(f"{request.method} {request.url.path} → {response.status_code} ({duration:.2f}s)")
+    return response
+
+
 @app.get("/")
 def root():
+    logger.info("API activa CORRECTAMENTE")
     return {"ok": True, "msg": "API de análisis hipotecario activa"}
 
 @app.post("/analisis")
 def analisis(data: AnalisisInput):
+    logger.info(f"Analizando hipoteca: tipo={data.tipo}, capital={data.capital_pendiente}, años={data.anos_restantes}")
+
+    print("Datos recibidos:", data)
     P = data.capital_pendiente
     n_meses = data.anos_restantes * 12
 
     # tipo efectivo anual
     if data.tipo.lower() == "variable":
         if data.euribor is None or data.diferencial is None:
+            logger.warning("****Faltan euribor o diferencial para hipoteca variable****")
             return {"ok": False, "error": "Para 'variable' necesitas euribor y diferencial."}
+        
         tipo_anual = (data.euribor + data.diferencial) / 100.0
         tipo_label = f"variable (Euríbor {data.euribor:.2f}% + {data.diferencial:.2f}%)"
     else:
         if data.tin is None:
+            logger.warning("****Falta TIN para hipoteca fija****")
             return {"ok": False, "error": "Para 'fijo' necesitas el TIN (%)."}
         tipo_anual = data.tin / 100.0
         tipo_label = f"fijo ({data.tin:.2f}%)"
@@ -191,14 +240,15 @@ def analisis(data: AnalisisInput):
             avisos.append("LTV >80%: alto apalancamiento; la subrogación puede ser más difícil.")
         elif ltv > 70:
             avisos.append("LTV 70–80%: margen razonable, pero cuidado con caídas de valor.")
-
-    return {
-        "ok": True,
-        "entrada": {
-            "capital_pendiente": P,
-            "anos_restantes": data.anos_restantes,
-            "tipo": tipo_label
-        },
+    
+    logger.info("Análisis completado CORRECTAMENTE")
+    resultado = {
+    "ok": True,
+    "entrada": {
+        "capital_pendiente": P,
+        "anos_restantes": data.anos_restantes,
+        "tipo": tipo_label
+    },  
         "metricas": {
             "cuota_efectiva": round(cuota_efectiva, 2),
             "cuota_estimada": round(cuota_estimada, 2),
@@ -219,3 +269,73 @@ def analisis(data: AnalisisInput):
         "comparativa_subrogacion": comparativa,
         "avisos": avisos
     }
+
+    global ultimo_resultado
+    ultimo_resultado = resultado
+
+    return resultado
+
+
+
+@app.post("/preguntar")
+def preguntar(data: PreguntaInput):
+    global ultimo_resultado
+
+    if not ultimo_resultado:
+        logger.warning("****Intento de pregunta sin análisis previo****")
+        return {"ok": False, "error": "No hay análisis previo. Envía el formulario primero."}
+
+    api_key = os.getenv("GROQ_API_KEY")  # tu clave
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    system_prompt = """
+    Eres un asistente hipotecario digital experto en hipotecas en España.
+
+    Tu objetivo es ayudar al usuario a entender su situación hipotecaria, cuotas, intereses, DTI o LTV,
+    basándote en el contexto que te da el sistema.
+
+    Reglas:
+    - Responde SIEMPRE en español.
+    - Sé breve y claro (1 a 3 frases).
+    - Usa un tono natural, empático y profesional.
+    - No des consejos legales, fiscales ni financieros personales.
+    - Si faltan datos, dilo y sugiere qué información falta.
+    - No inventes cifras ni datos bancarios.
+    - Si el usuario te pide una opinión, da orientación general y en preguntas complicadas anima a consultar con un experto.
+    - Evita tecnicismos; explica las cosas de forma sencilla y práctica.
+
+    Ejemplo de estilo:
+    ❌ “El diferencial aplicado al índice de referencia es superior a la media histórica.”
+    ✅ “Tu tipo variable parece algo alto; podrías preguntar si tu banco ofrece un diferencial más bajo.”
+    """
+
+    # Construimos el mensaje con contexto
+    messages = [
+        {"role": "system", "content": system_prompt.strip()},
+        {"role": "system", "content": f"Contexto del usuario: {ultimo_resultado}"},
+        {"role": "user", "content": data.pregunta}
+    ]
+
+    payload = {
+    "model": "llama-3.1-8b-instant",
+    "messages": messages,
+    "temperature": 0.3,
+    "max_tokens": 250,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        respuesta = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+        logger.info("Respuesta de la API Groq recibida correctamente")
+        return {"ok": True, "respuesta": respuesta}
+    except requests.HTTPError as e:
+        return {"ok": False, "error": f"Error en la API: {e} - {resp.text}"}
+    except Exception as e:
+        logger.exception(f"****Error en /preguntar: {e}****")
+        return {"ok": False, "error": str(e)}

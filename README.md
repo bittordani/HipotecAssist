@@ -30,6 +30,24 @@ El asesor hipotecario virtual es una solución basada en inteligencia artificial
 - Agilidad en la atención y disponibilidad 24/7
 - Lenguaje técnico simplificado para cualquier usuario
 
-## Como usar
-- pip install -r requirements.txt
-- uvicorn hipotecassist_api:app --reload
+## Como usar en local
+- Clonar repositorio:
+  ```
+  git clone git@github.com:bittordani/HipotecAssist.git
+  cd HipotecAssist
+  ```
+- ¡Muy importante antes del siguiente paso! Editar archivo .env con la API_KEY
+
+- Desplegar proyecto dentro de la carpeta HipotecAssist:
+  ```
+  Docker compose up -d --build
+  ```
+- Navegar a:
+  ```
+  http://localhost:8080/
+  ```
+
+## Git Actions
+
+- Dockerflow.yml:
+*Verifica que los cambios que se han realizado en la aplicacion dockeriza correctamnete, comprobando que la API funciona y actualiza las imagenes Back y Front en DockerHub*
