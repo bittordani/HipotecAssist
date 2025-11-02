@@ -1,0 +1,17 @@
+# fastapi
+# uvicorn[standard]
+# pydantic
+# requests
+# python-dotenv
+# pytest
+
+# datetime
+# langchain==0.1.45
+# openai
+
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+requests
+google-genai

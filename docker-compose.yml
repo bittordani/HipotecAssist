@@ -1,0 +1,18 @@
+services:
+  backend:
+    image: matope1/hipotecassist-backend:latest
+    container_name: backend
+    ports:
+      - "8000:8000" # si hay conflicto de puertos cambiar el primer numero
+    env_file:
+      - ./.env
+    restart: always
+
+  frontend:
+    image: matope1/hipotecassist-frontend:latest
+    container_name: frontend
+    ports:
+      - "8080:80" # si hay conflicto de puertos cambiar el primer numero
+    depends_on:
+      - backend
+    restart: always

@@ -1,5 +1,5 @@
 # Asistente hipoteracio y financiero
-
+ 
 Integrantes: Victor | Ivan | Guillermo
 ## Presentación 
 El asesor hipotecario virtual es una solución basada en inteligencia artificial diseñada para ofrecer asistencia rápida, personalizada y eficiente en procesos hipotecarios. Su objetivo es mejorar la experiencia y el conocimiento del usuario, reducir los costes a el usuario final y adaptarse a las últimas tendencias del mercado financiero.
@@ -29,3 +29,20 @@ El asesor hipotecario virtual es una solución basada en inteligencia artificial
 - Reducción de costes en atención humana
 - Agilidad en la atención y disponibilidad 24/7
 - Lenguaje técnico simplificado para cualquier usuario
+
+## Como usar
+- Clonar repositorio:
+  ```
+  git clone git@github.com:bittordani/HipotecAssist.git
+  cd HipotecAssist
+  ```
+- ¡Muy importante antes del siguiente paso! Editar archivo .env con la API_KEY
+
+- Desplegar proyecto dentro de la carpeta HipotecAssist:
+  ```
+  Docker compose up -d --build
+  ```
+- Navegar a:
+  ```
+  http://localhost:8080/
+  ```

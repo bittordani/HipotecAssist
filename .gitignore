@@ -1,3 +1,29 @@
 # Entornos virtuales
 venv/
-.env/
+# .env/
+# .env
+.venv/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# Logs / SO
+*.log
+.DS_Store
+Thumbs.db
+
+# Ignorar todos los archivos compilados por python
+__pycache__/
+*.pyc
+
+# envs
+# **/.env
+# *.env
