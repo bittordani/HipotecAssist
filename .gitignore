@@ -1,6 +1,7 @@
 # Entornos virtuales
 venv/
-.env/
+# .env/
+# .env
 .venv/
 
 # Python cache
@@ -23,3 +24,6 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# envs
+# **/.env
+# *.env
