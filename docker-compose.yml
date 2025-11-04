@@ -1,3 +1,4 @@
+#USAR PARA PRO, COGE LAS IMAGES DE DOCKER HUB MAS ACTUALIZADA
 services:
   backend:
     image: matope1/hipotecassist-backend:latest
