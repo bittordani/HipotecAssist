@@ -1,5 +1,4 @@
-version: '3.8'
-
+#USAR SIEMPRE EN LOCAL
 services:
   backend:
     build: ./backend
