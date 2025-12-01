@@ -1,65 +1,90 @@
-# llm.py
+# backend/llm.py
 import os
-import getpass
 import logging
-import sys
+import google.generativeai as genai
 
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types as genai_types
-
-# -------------------- Logging para Docker --------------------
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
 logger = logging.getLogger(__name__)
 
-# -------------------- Cargar .env --------------------
-load_dotenv()
+SYSTEM_INSTRUCTION = """
+Eres un gestor hipotecario experto en hipotecas en España.
 
-# -------------------- Pedir API Key si no está --------------------
-if not os.getenv("GOOGLE_API_KEY"):
-    os.environ["GOOGLE_API_KEY"] = getpass.getpass("🔑 Google Gemini API Key: ")
-    logger.info("✅ Clave GOOGLE_API_KEY asignada desde input.")
-else:
-    logger.info("✅ Clave GOOGLE_API_KEY cargada desde variables de entorno.")
+Dispones de:
+A) ANALISIS_USUARIO: métricas calculadas del usuario
+B) DOCUMENTOS_RAG: fragmentos de PDFs bancarios (FIPRE/FIPER/folletos)
 
-# -------------------- Inicializar cliente Gemini --------------------
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+REGLAS:
+1) Si la pregunta pide condiciones concretas de un banco (% financiación, comisión, TIN/TAE, plazo, etc.):
+   - SOLO puedes afirmar cifras/condiciones si aparecen claramente en DOCUMENTOS_RAG.
+   - Si NO aparecen, NO inventes: responde como ORIENTACIÓN GENERAL sin cifras de ese banco.
+2) Si usas documentos, cita SIEMPRE el ORIGEN del PDF y el ID del fragmento.
+3) NO uses “DOC 1/2/3…”. No existe.
+4) FORMATO OBLIGATORIO:
+   - Respuesta: 2 a 6 frases
+   - Fuentes: lista “<origen> (id=<id>)” o “Ninguna (no aparece en PDFs)”
+"""
 
-# -------------------- Función principal para responder preguntas --------------------
+def _build_docs_block(documentos_rag: list) -> str:
+    if not documentos_rag:
+        return "NO_HAY_DOCUMENTOS"
+
+    lines = []
+    for d in documentos_rag:
+        doc_id = d.get("id", "")
+        banco = d.get("banco", "")
+        producto = d.get("producto", "")
+        origen = d.get("origen", "") or "desconocido"
+        score = d.get("score", "")
+
+        header = f"[FUENTE origen={origen} | id={doc_id} | banco={banco} | producto={producto} | score={score}]"
+        body = (d.get("texto", "") or "").strip()
+        lines.append(f"{header}\n{body}")
+
+    return "\n\n".join(lines)
+
+
 def responder_pregunta_gemini(
     pregunta: str,
     contexto: dict,
-    temperature: float = 0.3,
-    max_tokens: int = 250
-):
-    """
-    Envía la pregunta al modelo Gemini usando el contexto del análisis previo.
-    Devuelve la respuesta de texto.
-    """
+    documentos_rag: list,
+    temperature: float = 0.2,
+    max_tokens: int = 250,
+) -> str:
     try:
-        # Convertimos el contexto en un resumen legible
-        contexto_texto = f"Contexto del usuario: {contexto}" if contexto else ""
-        system_instruction = (
-            "Eres un asistente hipotecario experto en hipotecas en España. "
-            "Tu objetivo es ayudar al usuario a entender su situación hipotecaria, cuotas, intereses, DTI o LTV. "
-            "Responde SIEMPRE en español, de forma breve y clara (1 a 3 frases), con tono empático y profesional."
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            return "Respuesta: Error: falta GOOGLE_API_KEY en variables de entorno.\nFuentes: Ninguna (config)"
+
+        genai.configure(api_key=api_key)
+
+        docs_block = _build_docs_block(documentos_rag)
+
+        prompt = f"""{SYSTEM_INSTRUCTION}
+
+ANALISIS_USUARIO:
+{contexto}
+
+DOCUMENTOS_RAG:
+{docs_block}
+
+PREGUNTA:
+{pregunta}
+"""
+
+        model = genai.GenerativeModel(model_name="gemini-2.5-flash-lite")
+        resp = model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": temperature,
+                "max_output_tokens": max_tokens,
+            },
         )
 
-        # Creamos el chat
-        chat = client.chats.create(model="gemini-2.5-flash-lite")
+        text = (getattr(resp, "text", "") or "").strip()
+        if not text:
+            return "Respuesta: No he podido generar una respuesta con la información disponible.\nFuentes: Ninguna (no aparece en PDFs)"
 
-        # Enviar mensaje inicial con contexto
-        first_response = chat.send_message(
-            f"{system_instruction}\n{contexto_texto}\nPregunta del usuario: {pregunta}"
-        )
-
-        logger.info("✅ Respuesta Gemini obtenida correctamente")
-        return first_response.text
+        return text
 
     except Exception as e:
         logger.exception("Error en responder_pregunta_gemini")
-        return f"Error inesperado en Gemini: {e}"
+        return f"Respuesta: Error inesperado generando respuesta.\nFuentes: Ninguna (error interno: {e})"
