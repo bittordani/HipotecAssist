@@ -8,12 +8,15 @@ services:
       - "8000:8000"
     env_file:
       - ./.env
-    depends_on:
-      - qdrant
+    volumes:
+      - ./data/docs_bancarios:/app/data/docs_bancarios:ro
     restart: always
 
   frontend:
-    image: matope1/hipotecassist-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    # image: matope1/hipotecassist-frontend:latest
     container_name: frontend
     ports:
       - "8080:80"
@@ -21,11 +24,11 @@ services:
       - backend
     restart: always
 
-  qdrant:
-    image: qdrant/qdrant
-    container_name: qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - ./qdrant_data:/qdrant/storage
-    restart: always
+  # qdrant:
+  #   image: qdrant/qdrant
+  #   container_name: qdrant
+  #   ports:
+  #     - "6333:6333"
+  #   volumes:
+  #     - ./qdrant_data:/qdrant/storage
+  #   restart: always

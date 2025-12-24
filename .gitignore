@@ -1,10 +1,10 @@
 # Entornos virtuales
 venv/
-.env/
+# .env/
 .venv/
 
 # Variables de entorno (secreto)
-.env
+# .env
 
 # Python cache
 __pycache__/
@@ -30,5 +30,5 @@ __pycache__/
 qdrant_data/
 
 # Si NO quieres subir documentación/PDF de bancos
-data/
-*.pdf
+# data/
+# *.pdf

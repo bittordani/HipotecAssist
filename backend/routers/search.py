@@ -1,4 +1,4 @@
-# backend/routers/search.py
+# -------------------- routers/search.py --------------------
 from typing import List, Dict, Optional
 from fastapi import APIRouter, Query
 from qdrant_client.models import Filter, FieldCondition, MatchValue
@@ -42,7 +42,8 @@ def buscar_hipotecas_en_qdrant(
             "texto": payload.get("texto", ""),
             "banco": payload.get("banco", ""),
             "producto": payload.get("producto", ""),
-            "origen": payload.get("origen", ""),  # <- CLAVE
+            "origen": payload.get("origen", ""),        # Nombre del documento
+            "ruta_pdf": payload.get("ruta_pdf", ""),   # Link al PDF
         })
 
     return docs

@@ -1,13 +1,17 @@
 # backend/hipotecassist_api.py
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from math import pow
 from typing import Optional, List, Dict
 import logging
 import time
+import os
 from datetime import datetime
 
+from pathlib import Path
 from routers.search import router as search_router
 from routers.search import buscar_hipotecas_en_qdrant
 from llm import responder_pregunta_gemini
@@ -27,6 +31,8 @@ logger = logging.getLogger(__name__)
 # -------------------- App --------------------
 app = FastAPI()
 app.include_router(search_router)
+
+app.mount("/pdfs", StaticFiles(directory="data/docs_bancarios"), name="pdfs")
 
 app.add_middleware(
     CORSMiddleware,
@@ -257,43 +263,119 @@ def analisis(data: AnalisisInput):
     logger.info("Análisis completado CORRECTAMENTE")
     return resultado
 
-# -------------------- Helpers --------------------
-def detectar_banco_desde_texto(texto: str) -> Optional[str]:
-    t = (texto or "").lower()
-    if "ing" in t:
-        return "ING"
-    if "santander" in t:
-        return "Santander"
-    if "bbva" in t:
-        return "BBVA"
-    return None
+# # -------------------- Helpers --------------------
+# def detectar_banco_desde_texto(texto: str) -> Optional[str]:
+#     t = (texto or "").lower()
+#     if "ing" in t:
+#         return "ING"
+#     if "santander" in t:
+#         return "Santander"
+#     if "bbva" in t:
+#         return "BBVA"
+#     return None
 
 # -------------------- /preguntar --------------------
+# @app.post("/preguntar")
+# def preguntar(body: PreguntaInput):
+#     global ultimo_resultado
+
+#     if not ultimo_resultado:
+#         logger.warning("Intento de /preguntar sin análisis previo")
+#         return {"ok": False, "error": "No hay análisis previo. Envía el formulario primero."}
+
+#     banco = detectar_banco_desde_texto(body.pregunta)
+
+#     # RAG directo (sin requests a localhost, evita líos en Docker)
+#     docs_rag = buscar_hipotecas_en_qdrant(
+#         query=body.pregunta,
+#         top_k=5,
+#         banco=None,
+#         min_score=0.15,
+#     )
+#     logger.info(f"/preguntar: RAG docs={len(docs_rag)} banco_filtro={banco}")
+
+#     respuesta = responder_pregunta_gemini(
+#         pregunta=body.pregunta,
+#         contexto=ultimo_resultado,
+#         documentos_rag=docs_rag,
+#         temperature=body.temperature,
+#         max_tokens=body.max_tokens,
+#     )
+
+#     return {"ok": True, "respuesta": respuesta, "documentos_usados": docs_rag}
+
 @app.post("/preguntar")
-def preguntar(body: PreguntaInput):
-    global ultimo_resultado
-
+def preguntar_llm(datos: PreguntaInput):
+    if not datos.pregunta.strip():
+        raise HTTPException(status_code=400, detail="La pregunta no puede estar vacía.")
     if not ultimo_resultado:
-        logger.warning("Intento de /preguntar sin análisis previo")
-        return {"ok": False, "error": "No hay análisis previo. Envía el formulario primero."}
+        raise HTTPException(status_code=400, detail="No hay análisis previo. Envía el formulario primero.")
 
-    banco = detectar_banco_desde_texto(body.pregunta)
+    resultado_actual = ultimo_resultado
 
-    # RAG directo (sin requests a localhost, evita líos en Docker)
+    # RAG: buscar documentos relevantes
     docs_rag = buscar_hipotecas_en_qdrant(
-        query=body.pregunta,
+        query=datos.pregunta,
         top_k=5,
-        banco=banco,
-        min_score=0.15,
+        min_score=0.15
     )
-    logger.info(f"/preguntar: RAG docs={len(docs_rag)} banco_filtro={banco}")
 
+    for d in docs_rag:
+        # Si no hay ruta_pdf pero sí hay origen, construye la ruta PDF
+        if not d.get("ruta_pdf") and d.get("origen"):
+            # Reemplaza barras invertidas por normales
+            d["ruta_pdf"] = d["origen"].replace("\\", "/")
+
+
+    # Llamada al LLM
     respuesta = responder_pregunta_gemini(
-        pregunta=body.pregunta,
-        contexto=ultimo_resultado,
+        pregunta=datos.pregunta,
+        contexto=resultado_actual,
         documentos_rag=docs_rag,
-        temperature=body.temperature,
-        max_tokens=body.max_tokens,
+        temperature=datos.temperature,
+        max_tokens=datos.max_tokens
     )
 
-    return {"ok": True, "respuesta": respuesta, "documentos_usados": docs_rag}
+    # Construir lista de documentos para el frontend
+    # Endpoint /preguntar corregido
+
+    # documentos_para_front = []
+    # for d in docs_rag:
+    #     # usa ruta_pdf si existe, sino origen
+    #     raw_path = d.get("ruta_pdf") or d.get("origen") or "desconocido"
+    #     ruta_pdf = raw_path.replace("\\", "/")  # reemplaza \ por /
+    #     filename = os.path.basename(ruta_pdf)
+    #     documentos_para_front.append({
+    #         "origen": filename,
+    #         "url": f"/pdfs/{filename}"  # URL limpia para el frontend
+    #     })
+
+    documentos_para_front = []
+    seen_files = set()
+
+    for d in docs_rag:
+        if d.get("ruta_pdf"):
+            filename = os.path.basename(d["ruta_pdf"])
+            if filename not in seen_files:
+                documentos_para_front.append({
+                    "origen": filename,
+                    "url": f"/pdfs/{filename}"
+                })
+                seen_files.add(filename)
+
+
+
+    return {
+        "ok": True,
+        "respuesta": respuesta,
+        "documentos_usados": documentos_para_front
+    }
+
+
+
+# @app.get("/pdf/{filename}")
+# def get_pdf(filename: str):
+#     ruta = f"../data/docs_bancarios/{filename}"
+#     if not os.path.exists(ruta):
+#         raise HTTPException(status_code=404, detail="PDF no encontrado")
+#     return FileResponse(ruta, media_type="application/pdf", filename=filename)
