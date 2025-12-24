@@ -4,6 +4,8 @@ services:
     container_name: backend
     ports:
       - "8000:8000"
+    volumes:
+      - ./data/docs_bancarios:/app/data/docs_bancarios:ro
     env_file:
       - ./.env
     restart: always

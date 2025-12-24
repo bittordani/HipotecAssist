@@ -1,18 +1,29 @@
 services:
   backend:
-    image: matope1/hipotecassist-backend:latest
+    build: ./backend
     container_name: backend
     ports:
-      - "8000:8000" # si hay conflicto de puertos cambiar el primer numero
+      - "8000:8000"
     env_file:
       - ./.env
+    volumes:
+      - ./data/docs_bancarios:/app/data/docs_bancarios:ro
     restart: always
 
   frontend:
-    image: matope1/hipotecassist-frontend:latest
+    build: ./frontend
     container_name: frontend
     ports:
-      - "8080:80" # si hay conflicto de puertos cambiar el primer numero
+      - "8080:80"
     depends_on:
       - backend
     restart: always
+
+  # qdrant:
+  #   image: qdrant/qdrant
+  #   container_name: qdrant
+  #   ports:
+  #     - "6333:6333"
+  #   volumes:
+  #     - ./qdrant_data:/qdrant/storage
+  #   restart: always
