@@ -1,8 +1,10 @@
 # Entornos virtuales
 venv/
 # .env/
-# .env
 .venv/
+
+# Variables de entorno (secreto)
+# .env
 
 # Python cache
 __pycache__/
@@ -24,6 +26,9 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# envs
-# **/.env
-# *.env
+# Datos locales del proyecto (Qdrant y PDFs)
+qdrant_data/
+
+# Si NO quieres subir documentación/PDF de bancos
+# data/
+# *.pdf
