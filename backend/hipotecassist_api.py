@@ -17,9 +17,12 @@ from routers.search import buscar_hipotecas_en_qdrant
 from llm import responder_pregunta_gemini
 
 # -------------------- Estado global --------------------
+# Almacena el último análisis de hipoteca realizado
+# Se usa para mantener contexto entre /analisis y /preguntar
 ultimo_resultado: Optional[Dict] = None
 
 # -------------------- Logging --------------------
+# Limpia handlers existentes para evitar duplicados en logs
 logging.getLogger().handlers.clear()
 logging.basicConfig(
     level=logging.INFO,
@@ -30,10 +33,14 @@ logger = logging.getLogger(__name__)
 
 # -------------------- App --------------------
 app = FastAPI()
+
+# Incluye router de búsqueda
 app.include_router(search_router)
 
+# Monta directorio estático para servir PDFs
 app.mount("/pdfs", StaticFiles(directory="data/docs_bancarios"), name="pdfs")
 
+# Configuración CORS para permitir peticiones desde el frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,30 +51,39 @@ app.add_middleware(
 
 # -------------------- Utilidades de cálculo --------------------
 def cuota_mensual(P: float, rate_annual: float, n_months: int) -> float:
-    r = rate_annual / 12.0
+    # Calcula la cuota mensual de un préstamo usando la fórmula francesa.
+
+    r = rate_annual / 12.0 # Convierte tipo anual a mensual
     if r <= 0:
+        # Si no hay interés, amortización lineal
         return P / n_months
     return P * (r * pow(1 + r, n_months)) / (pow(1 + r, n_months) - 1)
 
 def intereses_restantes_aprox(P: float, rate_annual: float, n_months: int) -> float:
+    #Calcula aproximadamente los intereses totales pendientes de pagar.
+
     c = cuota_mensual(P, rate_annual, n_months)
     total = c * n_months
     return max(0.0, total - P)
 
 def resumen_amortizacion(P: float, rate_annual: float, n_months: int, hitos=(12, 60, 120)) -> List[Dict]:
+    # Genera tabla de amortización mostrando el estado en meses específicos.
+
     r = rate_annual / 12.0
     c = cuota_mensual(P, rate_annual, n_months)
-    bal = P
+    bal = P # Saldo pendiente
     interes_acum = 0.0
     out = []
+    # Incluye siempre el último mes además de los hitos definidos
     setpoints = set(hitos) | {n_months}
 
     for m in range(1, n_months + 1):
-        i = bal * r
-        p = c - i
-        bal = max(0.0, bal - p)
+        i = bal * r # Interés del mes actual
+        p = c - i # Amortización de capital
+        bal = max(0.0, bal - p) # Nuevo saldo
         interes_acum += i
 
+        # Solo guarda información en los meses de interés
         if m in setpoints:
             out.append({
                 "mes": m,
@@ -77,15 +93,19 @@ def resumen_amortizacion(P: float, rate_annual: float, n_months: int, hitos=(12,
                 "saldo": round(bal, 2),
                 "interes_acum": round(interes_acum, 2),
             })
+        # Termina iteración si ya está completamente pagado
         if bal <= 0:
             break
 
     return out
 
 def ahorro_amortizacion_extra(P: float, rate_annual: float, n_months: int, extra: float, when_month: int = 1) -> float:
+    #Calcula el ahorro en intereses al hacer una amortización anticipada.
+
     r = rate_annual / 12.0
     c = cuota_mensual(P, rate_annual, n_months)
 
+    # SIN amortización extra
     b = P
     total_i_no = 0.0
     for _ in range(1, n_months + 1):
@@ -95,60 +115,91 @@ def ahorro_amortizacion_extra(P: float, rate_annual: float, n_months: int, extra
         if b <= 0:
             break
 
+    # CON amortización extra
     b = P
     total_i_si = 0.0
     for m in range(1, n_months + 1):
         i = b * r
+        # Aplica la amortización extra en el mes indicado
         if m == when_month:
             b = max(0.0, b - extra)
 
+        # Calcula el pago del mes
         pay = c if b + i > c else (b + i)
         total_i_si += min(i, pay)
         b = max(0.0, b - (pay - i))
         if b <= 0:
             break
-
+    # Devuelve la diferencia (ahorro)
     return round(max(0.0, total_i_no - total_i_si), 2)
 
 def stress_test_cuota(P: float, rate_annual: float, n_months: int, deltas=(0.01, 0.02)):
+    # Simula incrementos del tipo de interés para evaluar impacto en la cuota.
     base = cuota_mensual(P, rate_annual, n_months)
     res = []
     for d in deltas:
-        r2 = max(0.0, rate_annual + d)
-        c2 = cuota_mensual(P, r2, n_months)
+        r2 = max(0.0, rate_annual + d) # Tipo con incremento
+        c2 = cuota_mensual(P, r2, n_months) # Cuota con nuevo tipo
         res.append({
-            "delta_tipo_pp": int(d * 100),
-            "tipo_resultante": round((r2 * 100), 3),
+            "delta_tipo_pp": int(d * 100), # Delta en puntos porcentuales
+            "tipo_resultante": round((r2 * 100), 3), # Tipo resultante en %
             "cuota": round(c2, 2),
-            "diferencia": round(c2 - base, 2),
+            "diferencia": round(c2 - base, 2), # Incremento de cuota
         })
     return round(base, 2), res
 
 def calcula_dti(cuota: float, ingresos_mensuales: Optional[float]) -> Optional[float]:
+    """
+    Calcula el ratio Debt-to-Income (DTI): % de ingresos destinado a pagar deuda.
+    
+    Valores de referencia:
+    - <35%: Saludable
+    - 35-40%: En el límite
+    - >40%: Sobreendeudamiento
+    """
     if not ingresos_mensuales or ingresos_mensuales <= 0:
         return None
     return round((cuota / ingresos_mensuales) * 100.0, 2)
 
 def calcula_ltv(capital_pendiente: float, valor_vivienda: Optional[float]) -> Optional[float]:
+    """
+    Calcula el ratio Loan-to-Value (LTV): % del valor de la vivienda que está financiado.
+    
+    Valores de referencia:
+    - <70%: Bajo riesgo
+    - 70-80%: Riesgo moderado
+    - >80%: Alto apalancamiento
+    """
     if not valor_vivienda or valor_vivienda <= 0:
         return None
     return round((capital_pendiente / valor_vivienda) * 100.0, 2)
 
 # -------------------- Modelos --------------------
 class AnalisisInput(BaseModel):
+    # Datos obligatorios
     capital_pendiente: float = Field(..., gt=0)
     anos_restantes: int = Field(..., gt=0)
     tipo: str = Field("fijo", description="fijo | variable")
+
+    # Para hipoteca FIJA
     tin: Optional[float] = None
+
+    # Para hipoteca VARIABLE
     euribor: Optional[float] = None
     diferencial: Optional[float] = None
+
+    # Datos opcionales para cálculos avanzados
     cuota_actual: Optional[float] = None
     ingresos_mensuales: Optional[float] = None
     otras_deudas_mensuales: Optional[float] = 0.0
     valor_vivienda: Optional[float] = None
+
+    # Para comparar con ofertas de subrogación
     oferta_alternativa_tin: Optional[float] = None
 
 class PreguntaInput(BaseModel):
+    # Modelo para realizar preguntas al LLM sobre el análisis de hipoteca.
+
     pregunta: str
     temperature: float = 0.2
     max_tokens: int = 250
@@ -156,6 +207,8 @@ class PreguntaInput(BaseModel):
 # -------------------- Middleware logging --------------------
 @app.middleware("http")
 async def simple_logger(request: Request, call_next):
+    # Para monitorización y debug
+
     start = time.time()
     response = await call_next(request)
     duration = time.time() - start
@@ -165,13 +218,16 @@ async def simple_logger(request: Request, call_next):
 # -------------------- Básicos --------------------
 @app.get("/")
 def root():
+    #Verificar que la API está activa
     logger.info("API activa CORRECTAMENTE")
     return {"ok": True, "msg": "API de análisis hipotecario activa"}
 
+# Para el track del uptime
 start_time = datetime.utcnow()
 
 @app.get("/health")
 def health_check():
+    # muestra el tiempo de actividad del servidor.
     uptime = datetime.utcnow() - start_time
     days = uptime.days
     hours, remainder = divmod(uptime.seconds, 3600)
@@ -182,6 +238,8 @@ def health_check():
 # -------------------- /analisis --------------------
 @app.post("/analisis")
 def analisis(data: AnalisisInput):
+    # analiza una hipoteca y calcula todas las métricas.
+
     global ultimo_resultado
 
     logger.info(f"Analizando hipoteca: tipo={data.tipo}, capital={data.capital_pendiente}, años={data.anos_restantes}")
@@ -189,34 +247,45 @@ def analisis(data: AnalisisInput):
     P = data.capital_pendiente
     n_meses = data.anos_restantes * 12
 
+    # Determina el tipo de interés según tipo de hipoteca
     if data.tipo.lower() == "variable":
+        # Hipoteca variable: Euríbor + diferencial
         if data.euribor is None or data.diferencial is None:
             logger.warning("Faltan euribor o diferencial para hipoteca variable")
             return {"ok": False, "error": "Para 'variable' necesitas euribor y diferencial."}
         tipo_anual = (data.euribor + data.diferencial) / 100.0
         tipo_label = f"variable (Euríbor {data.euribor:.2f}% + {data.diferencial:.2f}%)"
     else:
+        # Hipoteca fija: TIN directo
         if data.tin is None:
             logger.warning("Falta TIN para hipoteca fija")
             return {"ok": False, "error": "Para 'fijo' necesitas el TIN (%)."}
         tipo_anual = data.tin / 100.0
         tipo_label = f"fijo ({data.tin:.2f}%)"
 
+    # Calcula cuota estimada y usa la real si está disponible
     cuota_estimada = cuota_mensual(P, tipo_anual, n_meses)
     cuota_efectiva = data.cuota_actual or cuota_estimada
 
+    # Calcula intereses totales restantes
     intereses_totales = intereses_restantes_aprox(P, tipo_anual, n_meses)
+
+    # Genera tabla de amortización en puntos clave (años 1, 5, 10)
     resumen = resumen_amortizacion(P, tipo_anual, n_meses, hitos=(12, 60, 120))
 
+    # Calcula ratios financieros (DTI y LTV)
     dti = calcula_dti(cuota_efectiva + (data.otras_deudas_mensuales or 0.0), data.ingresos_mensuales)
     ltv = calcula_ltv(P, data.valor_vivienda)
 
+    # Stress test: simula subidas de +1% y +2%
     cuota_base, stress = stress_test_cuota(P, tipo_anual, n_meses, deltas=(0.01, 0.02))
 
+    # Calcula ahorro por amortizaciones anticipadas de 1k, 5k y 10k
     ahorro_1k = ahorro_amortizacion_extra(P, tipo_anual, n_meses, 1000.0, 1)
     ahorro_5k = ahorro_amortizacion_extra(P, tipo_anual, n_meses, 5000.0, 1)
     ahorro_10k = ahorro_amortizacion_extra(P, tipo_anual, n_meses, 10000.0, 1)
 
+    # Comparativa con oferta alternativa (si existe)
     comparativa = None
     if data.oferta_alternativa_tin:
         alt_rate = data.oferta_alternativa_tin / 100.0
@@ -230,6 +299,7 @@ def analisis(data: AnalisisInput):
             "ahorro_intereses": round(intereses_totales - interes_alt, 2),
         }
 
+    # Genera avisos basados en DTI y LTV
     avisos = []
     if dti is not None:
         if dti >= 40:
@@ -242,6 +312,7 @@ def analisis(data: AnalisisInput):
         elif ltv > 70:
             avisos.append("LTV 70–80%: margen razonable, pero cuidado con caídas de valor.")
 
+    # Construye respuesta completa con todas las métricas
     resultado = {
         "ok": True,
         "entrada": {"capital_pendiente": P, "anos_restantes": data.anos_restantes, "tipo": tipo_label},
@@ -306,6 +377,9 @@ def analisis(data: AnalisisInput):
 
 @app.post("/preguntar")
 def preguntar_llm(datos: PreguntaInput):
+    # para hacer preguntas sobre el análisis de hipoteca mediante LLM.
+
+    # Validación de entrada
     if not datos.pregunta.strip():
         raise HTTPException(status_code=400, detail="La pregunta no puede estar vacía.")
     if not ultimo_resultado:
@@ -359,7 +433,7 @@ def preguntar_llm(datos: PreguntaInput):
             if filename not in seen_files:
                 documentos_para_front.append({
                     "origen": filename,
-                    "url": f"/pdfs/{filename}"
+                    "url": f"/pdfs/{filename}" # URL para acceder al PDF
                 })
                 seen_files.add(filename)
 
