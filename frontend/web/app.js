@@ -50,7 +50,7 @@ el("form-analisis").addEventListener("submit", async (e) => {
     }
 
     
-    // ✅ Guardamos el análisis para el chat
+    // Guardamos el análisis para el chat
     ultimoResultado = data;
     addMessage("Sistema", "Análisis completado. Ahora puedes hacer preguntas al asistente.");
 
@@ -350,7 +350,7 @@ function hideTyping() {
 
 
 
-// 🔄 Función para enviar mensaje
+// Función para enviar mensaje
 async function sendMessage() {
   const pregunta = chatInput.value.trim();
   if (!pregunta) return;
@@ -375,7 +375,7 @@ async function sendMessage() {
     const data = await res.json();
     hideTyping();
 
-    // ✅ Aquí pasamos también los documentos usados al chat
+    // Aquí pasamos también los documentos usados al chat
     console.log(data.documentos_usados);
 //    addMessage("Bot", data.respuesta || "No se pudo generar respuesta 😕", data.documentos_usados || []);
     addMessage("Bot", data.respuesta, data.documentos_usados);
@@ -388,10 +388,10 @@ async function sendMessage() {
 }
 
 
-// 🎯 Click para enviar
+// Click para enviar
 chatSend.addEventListener("click", sendMessage);
 
-// ⌨️ Enter para enviar
+// Enter para enviar
 chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
