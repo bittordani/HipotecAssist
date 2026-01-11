@@ -5,12 +5,16 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 from services.qdrant_connection import qdrant, embedding_model
 
+# Crea un router de FastAPI para agrupar endpoints relacionados con búsqueda
 router = APIRouter()
 
 
 def _build_bank_filter(banco: str) -> Filter:
+    # Construye un filtro de Qdrant para buscar por nombre de banco.
     b = (banco or "").strip()
+    # Genera variantes del nombre para búsqueda case-insensitive
     variants = {b, b.upper(), b.lower(), b.title()}
+    # Crea condiciones de matching para cada variante no vacía
     should = [FieldCondition(key="banco", match=MatchValue(value=v)) for v in variants if v]
     return Filter(should=should)
 
@@ -21,9 +25,15 @@ def buscar_hipotecas_en_qdrant(
     banco: Optional[str] = None,
     min_score: float = 0.15,
 ) -> List[Dict]:
+    # Busca documentos de hipotecas en Qdrant mediante búsqueda vectorial semántica.
+
+    # Convierte el texto de la query a vector usando el modelo de embeddings
     vector = embedding_model.encode(query).tolist()
+
+    # Construye filtro por banco
     q_filter = _build_bank_filter(banco) if banco else None
 
+    # Realiza búsqueda vectorial en Qdrant
     resultados = qdrant.query_points(
         collection_name="hipotecas",
         query=vector,
@@ -33,6 +43,7 @@ def buscar_hipotecas_en_qdrant(
         score_threshold=min_score,
     )
 
+    # Procesa y formatea los resultados
     docs: List[Dict] = []
     for punto in resultados.points:
         payload = punto.payload or {}
@@ -51,6 +62,8 @@ def buscar_hipotecas_en_qdrant(
 
 @router.get("/buscar")
 def buscar(
+    # para buscar documentos de hipotecas.
+    
     query: str = Query(...),
     top_k: int = Query(5, ge=1, le=20),
     banco: Optional[str] = Query(None),
