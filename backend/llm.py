@@ -5,6 +5,7 @@ import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
+# Prompt del sistema para regular el comportamiento del asistente
 SYSTEM_INSTRUCTION = """
 Eres un asistente experto en hipotecas en España, claro, preciso y orientado a ayudar al usuario.
 
@@ -146,6 +147,18 @@ Ayudar al usuario a:
 
 
 def _build_docs_block(documentos_rag: list) -> str:
+    """
+    Convierte la lista de documentos RAG en un bloque de texto formateado
+    con enlaces clicables a los PDFs fuente.
+    
+    Args:
+        documentos_rag: Lista de diccionarios con info de documentos recuperados
+                       Cada documento incluye: texto, ruta_pdf, id, origen
+    
+    Returns:
+        String formateado con los documentos y sus fuentes, o mensaje
+        indicando que no hay documentos disponibles
+    """
     if not documentos_rag:
         return "Ninguna (no aparece en PDFs)"
 
@@ -156,10 +169,12 @@ def _build_docs_block(documentos_rag: list) -> str:
         doc_id = d.get("id", "")
 
         if pdf:
+            # Extrae solo el nombre del archivo del path completo
             filename = os.path.basename(pdf)
             # Link clicable para HTML
             lines.append(f"{texto} (Fuente: <a href='/pdfs/{filename}' target='_blank'>{filename}</a>, id={doc_id})")
         else:
+            # Si no hay PDF, usa el campo 'origen' como referencia
             origen = d.get("origen") or "desconocido"
             filename = os.path.basename(origen.replace("\\", "/"))
             lines.append(f"{texto} (Fuente: {filename}, id={doc_id})")
@@ -180,7 +195,9 @@ def resumir_contexto_usuario_natural(contexto: dict) -> str:
     if not contexto:
         return "No hay datos de hipoteca del usuario."
 
+    # Extrae datos de entrada originales del usuario
     entrada = contexto.get("entrada", {})
+    # Extrae métricas calculadas por el sistema
     metricas = contexto.get("metricas", {})
 
     capital = entrada.get("capital_pendiente")
@@ -189,13 +206,14 @@ def resumir_contexto_usuario_natural(contexto: dict) -> str:
     cuota = metricas.get("cuota_efectiva")
     intereses = metricas.get("intereses_restantes_aprox")
 
+    # Construye resumen conversacional con los datos clave
     resumen = (
         f"Tienes una hipoteca de {capital} € con {anos} años restantes, "
         f"tipo {tipo}. Tu cuota mensual efectiva es de aproximadamente {cuota} €, "
         f"y los intereses que te quedan por pagar se estiman en {intereses} €."
     )
 
-    # Opcional: añade avisos financieros si existen
+    # Añade avisos financieros si el sistema los ha generado
     avisos = contexto.get("avisos", [])
     if avisos:
         resumen += " Además, considera lo siguiente: " + "; ".join(avisos)
@@ -210,16 +228,24 @@ def responder_pregunta_gemini(
     temperature: float = 0.2,
     max_tokens: int = 250,
 ) -> str:
+    """
+    Genera una respuesta usando Gemini basada en la pregunta del usuario,
+    su contexto hipotecario y documentos RAG relevantes.
+    """
     try:
+        # Verifica que exista la API key de Google
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             return "Respuesta: Error: falta GOOGLE_API_KEY en variables de entorno.\nFuentes: Ninguna (config)"
 
+        # Configura cliente de Gemini
         genai.configure(api_key=api_key)
 
+        # Prepara los bloques de contexto para el prompt
         docs_block = _build_docs_block(documentos_rag)
         contexto_resumido = resumir_contexto_usuario_natural(contexto)
 
+        # Construye el prompt completo con instrucciones, contexto y pregunta
         prompt = f"""{SYSTEM_INSTRUCTION}
 
 ANALISIS_USUARIO:
@@ -232,7 +258,10 @@ PREGUNTA:
 {pregunta}
 """
 
+        # Inicializa modelo
         model = genai.GenerativeModel(model_name="gemini-2.5-flash-lite")
+
+        # Genera respuesta con configuración específica
         resp = model.generate_content(
             prompt,
             generation_config={
@@ -241,6 +270,7 @@ PREGUNTA:
             },
         )
 
+        # Extrae texto de la respuesta
         text = (getattr(resp, "text", "") or "").strip()
         if not text:
             return "Respuesta: No he podido generar una respuesta con la información disponible.\nFuentes: Ninguna (no aparece en PDFs)"
@@ -248,5 +278,6 @@ PREGUNTA:
         return text
 
     except Exception as e:
+        # Registra error completo en logs y devuelve mensaje de error al usuario
         logger.exception("Error en responder_pregunta_gemini")
         return f"Respuesta: Error inesperado generando respuesta.\nFuentes: Ninguna (error interno: {e})"
