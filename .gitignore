@@ -21,6 +21,7 @@ __pycache__/
 *.log
 .DS_Store
 Thumbs.db
+logs/
 
 # Ignorar todos los archivos compilados por python
 __pycache__/

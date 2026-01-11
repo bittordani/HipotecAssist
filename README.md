@@ -285,9 +285,9 @@ Finalmente, queremos agradecer también el apoyo y la comprensión de nuestras f
 
 El equipo de trabajo:
 
-Iván
-Guillermo
-Víctor Daniel
+- Iván
+- Guillermo
+- Víctor Daniel
 
 <div align="center">
 

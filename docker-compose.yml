@@ -7,6 +7,7 @@ services:
     env_file:
       - ./.env
     volumes:
+      - ./backend/logs:/app/logs  # <--- esto monta la carpeta local
       - ./data/docs_bancarios:/app/data/docs_bancarios:ro
     restart: always
 
