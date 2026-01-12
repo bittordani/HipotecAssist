@@ -110,43 +110,6 @@ Ayudar al usuario a:
 #   "Ninguna (no aparece en PDFs)"
 
 
-# -------------------- Helpers --------------------
-# def _build_docs_block(documentos_rag: list) -> str:
-#     if not documentos_rag:
-#         return "NO_HAY_DOCUMENTOS"
-
-#     lines = []
-#     for d in documentos_rag:
-#         doc_id = d.get("id", "")
-#         banco = d.get("banco", "")
-#         producto = d.get("producto", "")
-#         origen = d.get("origen", "") or "desconocido"
-#         score = d.get("score", "")
-
-#         header = f"[FUENTE origen={origen} | id={doc_id} | banco={banco} | producto={producto} | score={score}]"
-#         body = (d.get("texto", "") or "").strip()
-#         lines.append(f"{header}\n{body}")
-
-#     return "\n\n".join(lines)
-
-# def _build_docs_block(documentos_rag: list) -> str:
-#     if not documentos_rag:
-#         return "Ninguna (no aparece en PDFs)"
-
-#     lines = []
-#     for d in documentos_rag:
-#         texto = (d.get("texto") or "").strip()
-#         pdf = d.get("ruta_pdf")
-#         doc_id = d.get("id", "")
-#         if pdf:
-#             filename = pdf.split("/")[-1].replace(".pdf", "")
-#             lines.append(f"{texto} <a href='{pdf}' target='_blank'>{filename}</a> (id={doc_id})")
-#         else:
-#             origen = d.get("origen", "desconocido")
-#             lines.append(f"{texto} (Fuente: {origen}, id={doc_id})")
-
-#     return "\n\n".join(lines)
-
 
 def _build_docs_block(documentos_rag: list) -> str:
     """
