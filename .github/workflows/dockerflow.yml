@@ -30,6 +30,16 @@ jobs:
           docker build -t matope1/hipotecassist-backend:ci -f backend/Dockerfile backend/
           docker build -t matope1/hipotecassist-frontend:ci -f frontend/Dockerfile frontend/
 
+        # Creamos el .env para que env_file: ./.env funcione en CI
+      - name: Create .env file from secrets
+        run: |
+          cat > .env << 'EOF'
+          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          QDRANT_URL=${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
+          EOF
+          echo ".env created"
+
         # Contruye la aplicación con docker compose CI (contruye dockerfile local)
       - name: Start with Docker Compose up
         run: |
