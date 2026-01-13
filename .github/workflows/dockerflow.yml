@@ -2,12 +2,9 @@ name: dockerflow
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, feature/dockerizar]
   push:
-    # cualquier push excepto main/develop
-    branches-ignore: 
-      - main
-      - develop   
+    branches: [main, develop, feature/dockerizar]
   workflow_dispatch:
 
 
@@ -17,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DOCKER_HUB_USERNAME: matope1 # ${{ secrets.DOCKER_USERNAME }} aplicar secret/env en repo
-      DOCKER_HUB_TOKEN: dckr_pat_h4J2zfsoXd6x4N03BPadqzbbJVM #${{ secrets.DOCKER_TOKEN }} aplicar secret en repo
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_TOKEN }}
 
     steps:
       - name: Checkout
@@ -33,6 +30,16 @@ jobs:
           docker build -t matope1/hipotecassist-backend:ci -f backend/Dockerfile backend/
           docker build -t matope1/hipotecassist-frontend:ci -f frontend/Dockerfile frontend/
 
+        # Creamos el .env para que env_file: ./.env funcione en CI
+      - name: Create .env file from secrets
+        run: |
+          cat > .env << 'EOF'
+          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          QDRANT_URL=${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
+          EOF
+          echo ".env created"
+
         # Contruye la aplicación con docker compose CI (contruye dockerfile local)
       - name: Start with Docker Compose up
         run: |
@@ -40,7 +47,7 @@ jobs:
           # Esperar a que el backend esté listo
           until curl -s http://localhost:8000/; do
             echo "Esperando backend..."
-            sleep 5
+            sleep 2
           done
 
         # Test de conectividad con los endpoints
@@ -77,5 +84,3 @@ jobs:
           docker push matope1/hipotecassist-backend:latest
           docker tag matope1/hipotecassist-frontend:ci matope1/hipotecassist-frontend:latest
           docker push matope1/hipotecassist-frontend:latest
-
-
