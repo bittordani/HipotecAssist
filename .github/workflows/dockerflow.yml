@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DOCKER_HUB_USERNAME: matope1 # ${{ secrets.DOCKER_USERNAME }} aplicar secret/env en repo
-      DOCKER_HUB_TOKEN: dckr_pat_h4J2zfsoXd6x4N03BPadqzbbJVM #${{ secrets.DOCKER_TOKEN }} aplicar secret en repo
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_TOKEN }}
 
     steps:
       - name: Checkout
