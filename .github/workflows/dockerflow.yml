@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DOCKER_HUB_USERNAME: matope1 # ${{ secrets.DOCKER_USERNAME }} aplicar secret/env en repo
-      DOCKER_HUB_TOKEN: dckr_pat_h4J2zfsoXd6x4N03BPadqzbbJVM #${{ secrets.DOCKER_TOKEN }} aplicar secret en repo
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_TOKEN }}
 
     steps:
       - name: Checkout
@@ -32,6 +32,16 @@ jobs:
         run: |
           docker build -t matope1/hipotecassist-backend:ci -f backend/Dockerfile backend/
           docker build -t matope1/hipotecassist-frontend:ci -f frontend/Dockerfile frontend/
+
+        # Creamos el .env para que env_file: ./.env funcione en CI
+      - name: Create .env file from secrets
+        run: |
+          cat > .env << 'EOF'
+          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          QDRANT_URL=${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
+          EOF
+          echo ".env created"
 
         # Contruye la aplicación con docker compose CI (contruye dockerfile local)
       - name: Start with Docker Compose up
