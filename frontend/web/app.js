@@ -48,7 +48,9 @@ el("form-analisis").addEventListener("submit", async (e) => {
       alert(data.error || "Error en el análisis");
       return;
     }
-    // ✅ Guardamos el análisis para el chat
+
+    
+    // Guardamos el análisis para el chat
     ultimoResultado = data;
     addMessage("Sistema", "Análisis completado. Ahora puedes hacer preguntas al asistente.");
 
@@ -245,56 +247,57 @@ chatInputContainer.appendChild(chatSend);
 chatPanel.appendChild(chatInputContainer);
 document.querySelector(".container").appendChild(chatPanel);
 
-// Mostrar mensajes con estilo (burbujas)
-function addMessage(sender, text) {
+function addMessage(sender, text, documentos = []) {
+  console.log("📄 documentos:", documentos);
+
   const msg = document.createElement("div");
   msg.className = sender === "Usuario" ? "msg-user" : "msg-bot";
-  msg.innerHTML = `<div><strong>${sender}:</strong><br>${text}</div>`;
-  msg.style = `
-    margin: 10px 0;
-    padding: 10px 12px;
-    border-radius: 10px;
-    max-width: 75%;
-    line-height: 1.5;
-    white-space: pre-wrap;
-  `;
-  if (sender === "Usuario") {
-    msg.style.background = "#e7f1ff";
-    msg.style.marginLeft = "auto";
-  } else {
-    msg.style.background = "#f3f3f3";
-    msg.style.marginRight = "auto";
+
+  let docsHTML = "";
+  if (documentos.length > 0) {
+    docsHTML = `<div style="text-align:center; margin-top:6px;">
+      <ul style='list-style:none; padding-left:0; margin:0; display:inline-flex; gap:6px;'>`;
+    documentos.forEach(d => {
+    docsHTML += `
+      <li>
+        <a href="${API}${d.url}" target="_blank"
+          style="
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            padding:3px 5px;
+            background:#0d6efd;
+            color:#fff;
+            border-radius:4px;
+            text-decoration:none;
+            font-size:0.65em;
+          ">
+          <span style="font-size:0.7em;">📄</span> ${d.origen}
+        </a>
+      </li>
+    `;
+  });
+
+    docsHTML += "</ul></div>";
   }
+
+
+"#e0e0e0ff"
+  msg.innerHTML = `<strong>${sender}:</strong><br>${text}${docsHTML}`;
+
+  msg.style.margin = "10px 0";
+  msg.style.padding = "10px 12px";
+  msg.style.borderRadius = "10px";
+  msg.style.maxWidth = "75%";
+  msg.style.whiteSpace = "pre-wrap";
+
+  msg.style.background = sender === "Usuario" ? "#e7f1ff" : "#f3f3f3";
+  msg.style.marginLeft = sender === "Usuario" ? "auto" : "0";
+
   chatMessages.appendChild(msg);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 🟢 Mostrar animación "escribiendo..." tipo WhatsApp
-function showTyping() {
-  typingIndicator = document.createElement("div");
-  typingIndicator.innerHTML = `
-    <div class="typing">
-      <span></span><span></span><span></span>
-    </div>
-  `;
-  typingIndicator.style = `
-    margin: 8px 0;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: #f3f3f3;
-    width: 60px;
-  `;
-  chatMessages.appendChild(typingIndicator);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// 🔴 Ocultar animación "escribiendo..."
-function hideTyping() {
-  if (typingIndicator) {
-    typingIndicator.remove();
-    typingIndicator = null;
-  }
-}
 
 // CSS animación typing estilo WhatsApp (3 puntos)
 const style = document.createElement("style");
@@ -325,7 +328,29 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// 🔄 Función para enviar mensaje
+function showTyping() {
+  typingIndicator = document.createElement("div");
+  typingIndicator.className = "msg-bot";
+  typingIndicator.innerHTML = `
+    <strong>Bot:</strong>
+    <div class="typing">
+      <span></span><span></span><span></span>
+    </div>
+  `;
+  chatMessages.appendChild(typingIndicator);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function hideTyping() {
+  if (typingIndicator) {
+    typingIndicator.remove();
+    typingIndicator = null;
+  }
+}
+
+
+
+// Función para enviar mensaje
 async function sendMessage() {
   const pregunta = chatInput.value.trim();
   if (!pregunta) return;
@@ -349,7 +374,12 @@ async function sendMessage() {
 
     const data = await res.json();
     hideTyping();
-    addMessage("Bot", data.respuesta || "No se pudo generar respuesta 😕");
+
+    // Aquí pasamos también los documentos usados al chat
+    console.log(data.documentos_usados);
+//    addMessage("Bot", data.respuesta || "No se pudo generar respuesta 😕", data.documentos_usados || []);
+    addMessage("Bot", data.respuesta, data.documentos_usados);
+
   } catch (err) {
     hideTyping();
     console.error(err);
@@ -357,10 +387,11 @@ async function sendMessage() {
   }
 }
 
-// 🎯 Click para enviar
+
+// Click para enviar
 chatSend.addEventListener("click", sendMessage);
 
-// ⌨️ Enter para enviar
+// Enter para enviar
 chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -368,109 +399,3 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
-
-// // Crear contenedor de chat
-// const chatPanel = document.createElement("div");
-// chatPanel.id = "chat-panel";
-// chatPanel.style = "border:1px solid #ccc; padding:10px; margin-top:20px;";
-
-// // Título
-// const chatTitle = document.createElement("h2");
-// chatTitle.textContent = "Asistente Hipotecario";
-// chatPanel.appendChild(chatTitle);
-
-// // Mensajes
-// const chatMessages = document.createElement("div");
-// chatMessages.id = "chat-messages";
-// chatMessages.style = "border:1px solid #ccc; padding:10px; height:200px; overflow-y:auto; margin-bottom:10px;";
-// chatPanel.appendChild(chatMessages);
-
-// // Input + botón
-// const chatInput = document.createElement("input");
-// chatInput.id = "chat-input";
-// chatInput.placeholder = "Escribe tu pregunta...";
-// chatInput.style = "width:70%; margin-right:5px;";
-// chatPanel.appendChild(chatInput);
-
-// const chatSend = document.createElement("button");
-// chatSend.textContent = "Enviar";
-// chatPanel.appendChild(chatSend);
-
-// // Añadir chat al final del contenedor principal
-// document.querySelector(".container").appendChild(chatPanel);
-
-// // Función para mostrar mensajes
-// function addMessage(sender, text) {
-//   const div = document.createElement("div");
-//   div.innerHTML = `<strong>${sender}:</strong> ${text}`;
-//   chatMessages.appendChild(div);
-//   chatMessages.scrollTop = chatMessages.scrollHeight;
-// }
-
-// Guardar análisis para usar en el chat
-// const formAnalisis = el("form-analisis");
-// formAnalisis.addEventListener("submit", async (e) => {
-//   e.preventDefault();
-
-//   // Después de que el análisis haya ido bien...
-//   const payload = {
-//     capital_pendiente: parseFloat(el("capital_pendiente").value),
-//     anos_restantes: parseInt(el("anos_restantes").value),
-//     tipo: el("tipo").value,
-//     tin: parseFloat(el("tin").value) || null,
-//     euribor: parseFloat(el("euribor").value) || null,
-//     diferencial: parseFloat(el("diferencial").value) || null,
-//     cuota_actual: parseFloat(el("cuota_actual").value) || null,
-//     ingresos_mensuales: parseFloat(el("ingresos_mensuales").value) || null,
-//     otras_deudas_mensuales: parseFloat(el("otras_deudas_mensuales").value) || 0,
-//     valor_vivienda: parseFloat(el("valor_vivienda").value) || null,
-//     oferta_alternativa_tin: parseFloat(el("oferta_alternativa_tin").value) || null,
-//   };
-
-//   try {
-//     const res = await fetch(`${API}/analisis`, {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify(payload),
-//     });
-
-//     const data = await res.json();
-//     if (data.ok) {
-//       ultimoResultado = data; // guardamos el análisis
-//       addMessage("Sistema", "Análisis completado. Ahora puedes hacer preguntas al asistente.");
-//     }
-//   } catch (err) {
-//     console.error(err);
-//   }
-// });
-
-// // Enviar preguntas al bot
-// chatSend.addEventListener("click", async () => {
-//   if (!ultimoResultado) {
-//     alert("Primero debes hacer un análisis.");
-//     return;
-//   }
-
-//   const pregunta = chatInput.value.trim();
-//   if (!pregunta) return;
-
-//   addMessage("Usuario", pregunta);
-//   chatInput.value = "";
-
-//   try {
-//     const res = await fetch(`${API}/preguntar`, {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({
-//         pregunta,
-//         contexto: ultimoResultado // enviamos el análisis como contexto
-//       })
-//     });
-
-//     const data = await res.json();
-//     addMessage("Bot", data.respuesta || "No se pudo generar respuesta.");
-//   } catch (err) {
-//     console.error(err);
-//     addMessage("Bot", "Error al conectarse con el servidor.");
-//   }
-// });

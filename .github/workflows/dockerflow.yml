@@ -2,9 +2,12 @@ name: dockerflow
 
 on:
   pull_request:
-    branches: [main, develop, feature/dockerizar]
+    branches: [main, develop]
   push:
-    branches: [main, develop, feature/dockerizar]
+    # cualquier push excepto main/develop
+    branches-ignore: 
+      - main
+      - develop   
   workflow_dispatch:
 
 
@@ -47,7 +50,7 @@ jobs:
           # Esperar a que el backend esté listo
           until curl -s http://localhost:8000/; do
             echo "Esperando backend..."
-            sleep 2
+            sleep 5
           done
 
         # Test de conectividad con los endpoints
