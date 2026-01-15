@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiamos el código del backend
 COPY . .
 
-COPY data /app/data
+# COPY data /app/data
 
 ARG PORT=8000
 ENV PORT $PORT

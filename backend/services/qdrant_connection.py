@@ -11,8 +11,8 @@ load_dotenv()
 # 
 
 # Obtener URL y API Key desde variables de entorno
-QDRANT_URL = os.getenv("QDRANT_URL")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+QDRANT_URL = os.getenv("QDRANT_URL").strip()
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY").strip()
 
 # Conectar al Qdrant Cloud
 qdrant = QdrantClient(
@@ -20,7 +20,7 @@ qdrant = QdrantClient(
     api_key=QDRANT_API_KEY
 )
 
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2").strip()
 
 def recuperar_contexto(query: str, k: int = 5) -> str:
     # 1. Embedding de la pregunta del usuario

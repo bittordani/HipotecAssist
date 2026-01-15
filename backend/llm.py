@@ -204,7 +204,7 @@ def responder_pregunta_gemini(
     """
     try:
         # Verifica que exista la API key de Google
-        api_key = os.getenv("GOOGLE_API_KEY")
+        api_key = os.getenv("GOOGLE_API_KEY").strip()
         if not api_key:
             return "Respuesta: Error: falta GOOGLE_API_KEY en variables de entorno.\nFuentes: Ninguna (config)"
 
