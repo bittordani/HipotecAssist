@@ -76,4 +76,4 @@ jobs:
             --allow-unauthenticated \
             --memory 4Gi \
             --cpu 2 \
-            --update-secrets GOOGLE_API_KEY=GOOGLE_API_KEY:latest,QDRANT_URL=QDRANT_URL:latest,QDRANT_API_KEY=QDRANT_API_KEY:latest
+            --set-secrets GOOGLE_API_KEY=GOOGLE_API_KEY:latest,QDRANT_API_KEY=QDRANT_API_KEY:latest,QDRANT_URL=QDRANT_URL:latest
