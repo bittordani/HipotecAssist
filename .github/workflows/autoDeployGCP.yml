@@ -1,4 +1,4 @@
-name: CI → Deploy to Cloud Run
+name: Deploy to Cloud Run
 
 on:
   pull_request:
@@ -29,7 +29,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest
+          python -m pytest backend/tests
 
   deploy:
     needs: test
