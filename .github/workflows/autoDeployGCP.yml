@@ -74,9 +74,9 @@ jobs:
             --region europe-west1 \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars \
             --memory 4Gi \
             --cpu 2 \
+            --set-env-vars \
               GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},\
               QDRANT_URL=${{ secrets.QDRANT_URL }},\
               QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
