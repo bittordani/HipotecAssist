@@ -21,7 +21,7 @@ COPY . .
 
 # ARG PORT=8000
 # ENV PORT $PORT
-# EXPOSE $PORT
+EXPOSE 8080
 
 # CMD ["uvicorn", "hipotecassist_api:app", "--host", "0.0.0.0", "--port", "8000"]
 # CMD ["uvicorn", "hipotecassist_api:app", "--host", "0.0.0.0", "--port", "${PORT}"]
