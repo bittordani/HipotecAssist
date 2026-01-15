@@ -20,7 +20,7 @@ qdrant = QdrantClient(
     api_key=QDRANT_API_KEY
 )
 
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2").strip()
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def recuperar_contexto(query: str, k: int = 5) -> str:
     # 1. Embedding de la pregunta del usuario
