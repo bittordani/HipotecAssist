@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiamos el código del backend
 COPY . .
-ENV PYTHONPATH=/app
 
 COPY data /app/data
 
