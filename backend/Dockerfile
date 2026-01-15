@@ -19,9 +19,9 @@ COPY . .
 
 # COPY data /app/data
 
-ARG PORT=8000
-ENV PORT $PORT
-EXPOSE $PORT
+# ARG PORT=8000
+# ENV PORT $PORT
+# EXPOSE $PORT
 
 # CMD ["uvicorn", "hipotecassist_api:app", "--host", "0.0.0.0", "--port", "8000"]
 # CMD ["uvicorn", "hipotecassist_api:app", "--host", "0.0.0.0", "--port", "${PORT}"]
