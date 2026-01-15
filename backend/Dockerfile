@@ -25,6 +25,8 @@ EXPOSE $PORT
 
 # CMD ["uvicorn", "hipotecassist_api:app", "--host", "0.0.0.0", "--port", "8000"]
 # CMD ["uvicorn", "hipotecassist_api:app", "--host", "0.0.0.0", "--port", "${PORT}"]
-CMD ["sh", "-c", "uvicorn hipotecassist_api:app --host 0.0.0.0 --port $PORT"]
+# CMD ["sh", "-c", "uvicorn hipotecassist_api:app --host 0.0.0.0 --port $PORT"]
 
 # CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "${PORT}"]
+
+CMD sh -c "uvicorn hipotecassist_api:app --host 0.0.0.0 --port ${PORT:-8080}"
