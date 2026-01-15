@@ -1,0 +1,76 @@
+name: CI → Deploy to Cloud Run
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+      SERVICE_ACCOUNT_EMAIL: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # 🔐 OIDC
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker europe-west1-docker.pkg.dev
+
+      - name: Build & Push backend image
+        run: |
+          docker build -t europe-west1-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/hipotecassist/backend:latest ./backend --build-arg PORT=8080
+          docker push europe-west1-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/hipotecassist/backend:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy hipotecassist-backend \
+            --image europe-west1-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/hipotecassist/backend:latest \
+            --region europe-west1 \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars \
+              GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},\
+              QDRANT_URL=${{ secrets.QDRANT_URL }},\
+              QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}

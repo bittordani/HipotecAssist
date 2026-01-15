@@ -17,6 +17,7 @@ from pathlib import Path
 from routers.search import router as search_router
 from routers.search import buscar_hipotecas_en_qdrant
 from llm import responder_pregunta_gemini
+import memoria
 
 # -------------------- Estado global --------------------
 # Almacena el último análisis de hipoteca realizado
@@ -230,11 +231,11 @@ class AnalisisInput(BaseModel):
     oferta_alternativa_tin: Optional[float] = None
 
 class PreguntaInput(BaseModel):
-    # Modelo para realizar preguntas al LLM sobre el análisis de hipoteca.
-
     pregunta: str
+    session_id: str
     temperature: float = 0.2
     max_tokens: int = 250
+
 
 # -------------------- Middleware logging --------------------
 @app.middleware("http")
@@ -368,40 +369,126 @@ def analisis(data: AnalisisInput):
 
 
 
+# @app.post("/preguntar")
+# def preguntar_llm(datos: PreguntaInput):
+#     logger.info(f"/preguntar recibida: '{datos.pregunta[:50]}...'")
+
+#     # Validación de entrada
+#     if not datos.pregunta.strip():
+#         logger.warning("Pregunta vacía recibida en /preguntar")
+#         raise HTTPException(status_code=400, detail="La pregunta no puede estar vacía.")
+#     if not ultimo_resultado:
+#         logger.warning("Intento de /preguntar sin análisis previo")
+#         raise HTTPException(status_code=400, detail="No hay análisis previo. Envía el formulario primero.")
+
+#     resultado_actual = ultimo_resultado
+
+#     # Buscar documentos relevantes en Qdrant
+#     docs_rag = buscar_hipotecas_en_qdrant(
+#         query=datos.pregunta,
+#         top_k=5,
+#         min_score=0.15
+#     )
+
+#     # Normalizar ruta PDF si falta
+#     for d in docs_rag:
+#         if not d.get("ruta_pdf") and d.get("origen"):
+#             d["ruta_pdf"] = d["origen"].replace("\\", "/")
+
+#     # ---------------- MEMORIA MINIMALISTA ----------------
+#     historial_texto = memoria.obtener_historial()
+#     pregunta_con_contexto = datos.pregunta
+#     if historial_texto:
+#         pregunta_con_contexto += f"\nHISTORIAL_CONVERSACION:\n{historial_texto}\n"
+
+#     respuesta = responder_pregunta_gemini(
+#         pregunta=pregunta_con_contexto,
+#         contexto=resultado_actual,
+#         documentos_rag=docs_rag,
+#         temperature=datos.temperature,
+#         max_tokens=datos.max_tokens
+#     )
+
+#     memoria.agregar_a_memoria(datos.pregunta, respuesta)
+#     # ------------------------------------------------------
+
+#     # Detectar bancos mencionados en la respuesta
+#     BANCOS_KNOWN = ["BBVA", "ING", "SANTANDER"] 
+#     respuesta_upper = respuesta.upper()
+#     bancos_mencionados = set()
+#     for banco in BANCOS_KNOWN:
+#         if banco in respuesta_upper:
+#             bancos_mencionados.add(banco)
+#     logger.info(f"Bancos mencionados en la respuesta: {bancos_mencionados}")
+
+#     # Filtrar PDFs solo de bancos mencionados
+#     documentos_para_front = []
+#     seen_files = set()
+#     for d in docs_rag:
+#         banco_doc = (d.get("banco") or "").upper()
+#         pdf = d.get("ruta_pdf")
+#         if pdf and banco_doc in bancos_mencionados:
+#             filename = os.path.basename(pdf)
+#             if filename not in seen_files:
+#                 documentos_para_front.append({
+#                     "origen": filename,
+#                     "url": f"/pdfs/{filename}"
+#                 })
+#                 seen_files.add(filename)
+
+#     logger.info(f"Se enviarán {len(documentos_para_front)} PDFs al frontend")
+
+#     return {
+#         "ok": True,
+#         "respuesta": respuesta,
+#         "documentos_usados": documentos_para_front
+#     }
+
+
+
+# @app.get("/pdf/{filename}")
+# def get_pdf(filename: str):
+#     ruta = f"../data/docs_bancarios/{filename}"
+#     if not os.path.exists(ruta):
+#         raise HTTPException(status_code=404, detail="PDF no encontrado")
+#     return FileResponse(ruta, media_type="application/pdf", filename=filename)
+
+
 @app.post("/preguntar")
 def preguntar_llm(datos: PreguntaInput):
-    logger.info(f"/preguntar recibida: '{datos.pregunta[:50]}...'")
+    session_id = datos.session_id  # obligatorio desde el frontend
+    logger.info(f"/preguntar recibida para session_id={session_id}: '{datos.pregunta[:50]}...'")
 
-    # Validación de entrada
     if not datos.pregunta.strip():
-        logger.warning("Pregunta vacía recibida en /preguntar")
         raise HTTPException(status_code=400, detail="La pregunta no puede estar vacía.")
     if not ultimo_resultado:
-        logger.warning("Intento de /preguntar sin análisis previo")
         raise HTTPException(status_code=400, detail="No hay análisis previo. Envía el formulario primero.")
 
     resultado_actual = ultimo_resultado
 
-    # Buscar documentos relevantes en Qdrant
-    docs_rag = buscar_hipotecas_en_qdrant(
-        query=datos.pregunta,
-        top_k=5,
-        min_score=0.15
-    )
-
-    # Normalizar ruta PDF si falta
+    # Buscar documentos relevantes
+    docs_rag = buscar_hipotecas_en_qdrant(query=datos.pregunta, top_k=5, min_score=0.15)
     for d in docs_rag:
         if not d.get("ruta_pdf") and d.get("origen"):
             d["ruta_pdf"] = d["origen"].replace("\\", "/")
 
-    # Generar respuesta con LLM
+    # ------------------ MEMORIA POR SESIÓN ------------------
+    historial_texto = memoria.obtener_historial(session_id)
+    pregunta_con_contexto = datos.pregunta
+    if historial_texto:
+        pregunta_con_contexto += f"\nHISTORIAL_CONVERSACION:\n{historial_texto}\n"
+
     respuesta = responder_pregunta_gemini(
-        pregunta=datos.pregunta,
+        pregunta=pregunta_con_contexto,
         contexto=resultado_actual,
         documentos_rag=docs_rag,
         temperature=datos.temperature,
         max_tokens=datos.max_tokens
     )
+
+    # Guardar interacción en la memoria del usuario
+    memoria.agregar_a_memoria(session_id, datos.pregunta, respuesta)
+    # ---------------------------------------------------------
 
     # Detectar bancos mencionados en la respuesta
     BANCOS_KNOWN = ["BBVA", "ING", "SANTANDER"] 
@@ -410,7 +497,6 @@ def preguntar_llm(datos: PreguntaInput):
     for banco in BANCOS_KNOWN:
         if banco in respuesta_upper:
             bancos_mencionados.add(banco)
-    logger.info(f"Bancos mencionados en la respuesta: {bancos_mencionados}")
 
     # Filtrar PDFs solo de bancos mencionados
     documentos_para_front = []
@@ -436,10 +522,10 @@ def preguntar_llm(datos: PreguntaInput):
     }
 
 
-
-# @app.get("/pdf/{filename}")
-# def get_pdf(filename: str):
-#     ruta = f"../data/docs_bancarios/{filename}"
-#     if not os.path.exists(ruta):
-#         raise HTTPException(status_code=404, detail="PDF no encontrado")
-#     return FileResponse(ruta, media_type="application/pdf", filename=filename)
+@app.post("/reiniciar_sesion")
+def reiniciar_sesion_endpoint(datos: dict):
+    session_id = datos.get("session_id")
+    if session_id:
+        memoria.reiniciar_sesion(session_id)
+        return {"ok": True, "mensaje": f"Sesión {session_id} reiniciada"}
+    return {"ok": False, "mensaje": "Falta session_id"}
