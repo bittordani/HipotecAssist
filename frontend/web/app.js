@@ -1,4 +1,5 @@
-const API = "http://localhost:8000";
+// const API = "http://localhost:8000";
+const API = "https://hipotecassist-backend-613538748724.europe-west1.run.app";
 
 // Generar un ID de sesión único por usuario
 let session_id = sessionStorage.getItem("session_id");
