@@ -13,7 +13,7 @@ jobs:
     env:
       # WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
       # SERVICE_ACCOUNT_EMAIL: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
-      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      # GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ env.GCP_PROJECT_ID }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Configure Docker
         run: |
@@ -62,13 +62,13 @@ jobs:
 
       - name: Build & Push backend image
         run: |
-          docker build -t europe-west1-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/hipotecassist/backend:latest ./backend --build-arg PORT=8080
-          docker push europe-west1-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/hipotecassist/backend:latest
+          docker build -t europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/hipotecassist/backend:latest ./backend --build-arg PORT=8080
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/hipotecassist/backend:latest
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy hipotecassist-backend \
-            --image europe-west1-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/hipotecassist/backend:latest \
+            --image europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/hipotecassist/backend:latest \
             --region europe-west1 \
             --platform managed \
             --allow-unauthenticated \
