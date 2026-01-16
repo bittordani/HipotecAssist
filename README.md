@@ -150,6 +150,17 @@ Este script:
 
 ---
 
+## 🚀 CI/CD – Workflows
+- 1️⃣ Deploy a Google Cloud
+
+Automatiza el despliegue de la aplicación en producción, publicando el backend en Cloud Run y el frontend estático en Cloud Storage, usando autenticación segura y gestión de secretos.
+
+- 2️⃣ Docker CI Flow
+
+Construye la aplicación con Docker, levanta el entorno con Docker Compose, verifica la conectividad de los endpoints y publica las imágenes actualizadas en Docker Hub si los tests son correctos.
+
+---
+
 ## Arquitectura
 
 Puedes consultar la arquitectura en el siguiente link:
@@ -175,11 +186,25 @@ https://drive.google.com/file/d/18l0uQ1Plih77QmoSHPO2RNTXFXLWBfhq/view?usp=shari
 
 ---
 
+### 🌐 Arquitectura Cloud (Google Cloud)
+La infraestructura cloud está desplegada y gestionada en Google Cloud Platform:
+👉 https://console.cloud.google.com/
+
+**Cloud Run**: https://hipotecassist-backend-613538748724.europe-west1.run.app
+- Ejecuta el backend (FastAPI) como servicio serverless.
+- Escala automáticamente según la carga.
+
+**Cloud Storage**: https://storage.googleapis.com/hipotecassist-frontend/index.html
+- Aloja el frontend estático.
+- Configurado como hosting web para servir la aplicación al usuario final.
+
+Doc [Servicios en Cloud y Manual de Despliegue](https://docs.google.com/document/d/1JWL-lQokPQINpO4aCLDoonetxtCDcnzD/edit?usp=drive_link&ouid=106308646616734439596&rtpof=true&sd=true)
+
 ## Uso de la Aplicación
 
 ### 1 Realizar Análisis Hipotecario
 
-1. Accede a [http://localhost:8080](http://localhost:8080)
+1. Accede a [Web Frontend](https://storage.googleapis.com/hipotecassist-frontend/index.html)
 2. Completa el formulario con los datos de tu hipoteca:
    - Capital pendiente
    - Años restantes
@@ -215,8 +240,9 @@ El asistente responderá basándose en:
 ```
 HipotecAssist/
 ├── backend/
-│   ├── hipotecassist_api.py    # API principal
+│   ├── hipotecassist_api.py     # API principal
 │   ├── llm.py                   # Integración Gemini
+│   ├── memoria.py               # Memoria por sesion
 │   ├── routers/
 │   │   └── search.py            # Endpoints RAG
 │   ├── services/

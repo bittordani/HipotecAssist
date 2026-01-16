@@ -11,8 +11,8 @@ load_dotenv()
 # 
 
 # Obtener URL y API Key desde variables de entorno
-QDRANT_URL = os.getenv("QDRANT_URL")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+QDRANT_URL = os.getenv("QDRANT_URL").strip()
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY").strip()
 
 # Conectar al Qdrant Cloud
 qdrant = QdrantClient(
