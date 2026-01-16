@@ -1,18 +1,3 @@
-# # Memoria minimalista de sesión
-# historial_sesion = []
-
-# def agregar_a_memoria(pregunta: str, respuesta: str):
-#     historial_sesion.append({"usuario": pregunta, "bot": respuesta})
-
-# def obtener_historial() -> str:
-#     """
-#     Devuelve todo el historial de la sesión como texto para contexto.
-#     """
-#     lineas = []
-#     for entry in historial_sesion:
-#         lineas.append(f"Tú: {entry['usuario']}")
-#         lineas.append(f"Bot: {entry['bot']}")
-#     return "\n".join(lineas)
 
 
 # backend/memoria.py
