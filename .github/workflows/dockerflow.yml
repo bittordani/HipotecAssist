@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    # cualquier push excepto main/develop
+    # cualquier push excepto main/develop, que ya pasa el test con el PR
     branches-ignore: 
       - main
       - develop   
