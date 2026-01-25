@@ -16,7 +16,11 @@ jobs:
       # WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
       # SERVICE_ACCOUNT_EMAIL: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
       # GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-
+      
+    permissions:
+      contents: read
+      id-token: write   # 🔐 OIDC
+      
     steps:
       - uses: actions/checkout@v4
       
