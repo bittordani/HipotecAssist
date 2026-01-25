@@ -19,7 +19,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
+      
+      - name: Debug secrets
+        run: |
+          echo "WIP set? -> '${{ secrets.WORKLOAD_IDENTITY_PROVIDER != '' }}'"
+          echo "SA set?  -> '${{ secrets.SERVICE_ACCOUNT_EMAIL != '' }}'"
+  
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
