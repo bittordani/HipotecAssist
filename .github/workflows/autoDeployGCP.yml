@@ -1,0 +1,65 @@
+name: Deploy to Cloud Run
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # env:
+      # WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+      # SERVICE_ACCOUNT_EMAIL: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
+      # GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      
+    permissions:
+      contents: read
+      id-token: write   # 🔐 OIDC
+      
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Debug secrets
+        run: |
+          echo "WIP set? -> '${{ secrets.WORKLOAD_IDENTITY_PROVIDER != '' }}'"
+          echo "SA set?  -> '${{ secrets.SERVICE_ACCOUNT_EMAIL != '' }}'"
+  
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker europe-west1-docker.pkg.dev
+
+      - name: Build & Push backend image
+        run: |
+          docker build -t europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/hipotecassist/backend:latest ./backend --build-arg PORT=8080
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/hipotecassist/backend:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy hipotecassist-backend \
+            --image europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/hipotecassist/backend:latest \
+            --region europe-west1 \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 4Gi \
+            --cpu 2 \
+            --set-secrets GOOGLE_API_KEY=GOOGLE_API_KEY:latest,QDRANT_API_KEY=QDRANT_API_KEY:latest,QDRANT_URL=QDRANT_URL:latest
+
+      - name: Deploy frontend to Cloud Storage
+        run: |
+          gsutil -m rsync -r -d frontend/web gs://hipotecassist-frontend
