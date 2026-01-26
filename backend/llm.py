@@ -2,12 +2,16 @@
 import os
 import logging
 import google.generativeai as genai
+# from google import genai
+
 
 logger = logging.getLogger(__name__)
 
 # Prompt del sistema para regular el comportamiento del asistente
 SYSTEM_INSTRUCTION = """
 Eres un asistente experto en hipotecas en España, claro, preciso y orientado a ayudar al usuario.
+Cuando el usuario saluda, responde con un mensage de saludo.
+Si te pregunta por algo que no corresponde responde con que no te dejan contestar eso.
 
 Dispones SIEMPRE de:
 A) ANALISIS_USUARIO:
@@ -47,7 +51,6 @@ REGLAS CRÍTICAS (OBLIGATORIAS)
 
 1) USO DEL CONTEXTO DEL USUARIO
 - Si ANALISIS_USUARIO existe:
-  - Usa SIEMPRE esos datos para razonar y comparar.
   - NO vuelvas a pedir capital, años, tipo o cuota.
   - NO digas que “no tienes información”.
   - NO repitas los datos al usuario salvo que sea estrictamente necesario.
@@ -60,7 +63,7 @@ REGLAS CRÍTICAS (OBLIGATORIAS)
 - Solo compara con bancos si el usuario lo pide explícita o implícitamente.
 - Solo menciona cifras (TIN, TAE, plazo, etc.) si aparecen en DOCUMENTOS_RAG.
 - Si no hay cifras concretas, da orientación general sin inventar números.
-- Pregunta por el rango de edad para recomendar un banco u otro.
+- Pregunta por la edad del usuario para recomendar un banco si no conoces la edad, si conoces la edad, no la vuelvas preguntar mas.
 
 3) DOCUMENTOS Y FUENTES
 - Si no hay documentos relevantes, indica:
@@ -108,6 +111,8 @@ Ayudar al usuario a:
 #   "<origen> (id=<id>)"
 # - O bien:
 #   "Ninguna (no aparece en PDFs)"
+#   - Usa SIEMPRE esos datos para razonar y comparar.
+
 
 
 
@@ -199,7 +204,7 @@ def responder_pregunta_gemini(
     """
     try:
         # Verifica que exista la API key de Google
-        api_key = os.getenv("GOOGLE_API_KEY")
+        api_key = os.getenv("GOOGLE_API_KEY").strip()
         if not api_key:
             return "Respuesta: Error: falta GOOGLE_API_KEY en variables de entorno.\nFuentes: Ninguna (config)"
 

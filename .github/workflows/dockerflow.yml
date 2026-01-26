@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    # cualquier push excepto main/develop
+    # cualquier push excepto main/develop, que ya pasa el test con el PR
     branches-ignore: 
       - main
       - develop   
@@ -65,7 +65,8 @@ jobs:
 
           curl -s -X POST http://localhost:8000/preguntar \
             -H "Content-Type: application/json" \
-            -d '{"pregunta":"Hola"}' \
+            -d '{"pregunta":"Hola",
+                "session_id":"1234"}' \
             -f
 
         # Limpia archivos que no se necesitan una vez pasado el test

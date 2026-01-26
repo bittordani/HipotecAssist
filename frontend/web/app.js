@@ -1,4 +1,21 @@
-const API = "http://localhost:8000";
+// const API = "http://localhost:8000";
+const API = "https://hipotecassist-backend-613538748724.europe-west1.run.app";
+
+// Generar un ID de sesión único por usuario
+let session_id = sessionStorage.getItem("session_id");
+if (!session_id) {
+  session_id = crypto.randomUUID(); // ID aleatorio
+  sessionStorage.setItem("session_id", session_id);
+}
+
+// Llamar al backend para reiniciar la sesión cada vez que se refresca la página
+fetch(`${API}/reiniciar_sesion`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ session_id })
+});
+
+
 
 const el = (id) => document.getElementById(id);
 const fmt = (n) => n?.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -350,7 +367,6 @@ function hideTyping() {
 
 
 
-// Función para enviar mensaje
 async function sendMessage() {
   const pregunta = chatInput.value.trim();
   if (!pregunta) return;
@@ -369,7 +385,12 @@ async function sendMessage() {
     const res = await fetch(`${API}/preguntar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pregunta })
+      body: JSON.stringify({ 
+        pregunta,
+        session_id,      // <-- agregamos aquí el session_id
+        temperature: 0.2, // opcional, igual que en backend
+        max_tokens: 250   // opcional
+      })
     });
 
     const data = await res.json();
@@ -377,7 +398,6 @@ async function sendMessage() {
 
     // Aquí pasamos también los documentos usados al chat
     console.log(data.documentos_usados);
-//    addMessage("Bot", data.respuesta || "No se pudo generar respuesta 😕", data.documentos_usados || []);
     addMessage("Bot", data.respuesta, data.documentos_usados);
 
   } catch (err) {
@@ -386,6 +406,7 @@ async function sendMessage() {
     addMessage("Bot", "Error al conectarse con el servidor ❌");
   }
 }
+
 
 
 // Click para enviar
